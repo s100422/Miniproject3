@@ -1,32 +1,46 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 
-export default async function Home() {
-  const { data, error } = await supabase
-    .from("dividend_stocks")
-    .select("ticker", { count: "exact" });
+export default function Home() {
+  const router = useRouter();
+  const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      if (!data.session) {
+        router.replace("/login");
+      } else {
+        setChecking(false);
+      }
+    });
+  }, [router]);
+
+  if (checking) return null;
 
   return (
-    <main className="mx-auto max-w-2xl px-6 py-16">
-      <h1 className="text-2xl font-semibold text-slate-900">
-        배당으로 해외여행가자!
-      </h1>
-      <p className="mt-2 text-slate-600">
-        매달 여행비 정도의 배당금을 목표로, 배당킹/귀족주로 플랜을 짜드려요.
-      </p>
+    <main className="mx-auto max-w-xl px-6 py-16 text-center">
+      <h1 className="text-2xl font-bold text-slate-900">배당주 투자에 대해 들어보셨나요?</h1>
 
-      <div className="mt-8 rounded-lg border border-slate-200 p-4">
-        {error ? (
-          <p className="text-red-600">Supabase 연결 실패: {error.message}</p>
-        ) : (
-          <p className="text-emerald-700">
-            Supabase 연결 성공 — 큐레이션된 배당주 {data?.length ?? 0}개 확인됨
-          </p>
-        )}
+      <div className="mt-8 space-y-4">
+        <Link
+          href="/about"
+          className="block rounded-lg border border-amber-300 bg-amber-50 px-6 py-4 text-left hover:border-amber-500"
+        >
+          <p className="text-lg font-semibold text-slate-900">아니요. 자세히 알려주세요.</p>
+          <p className="mt-1 text-sm text-slate-600">배당주 투자란? 자세히 보기</p>
+        </Link>
+
+        <Link
+          href="/plan"
+          className="block rounded-lg border border-amber-300 bg-amber-50 px-6 py-4 text-left hover:border-amber-500"
+        >
+          <p className="text-lg font-semibold text-slate-900">네. 바로 배당주 투자 플랜 짜주세요.</p>
+        </Link>
       </div>
-
-      <p className="mt-8 text-sm text-slate-400">
-        입력 폼은 다음 단계에서 만들어요.
-      </p>
     </main>
   );
 }

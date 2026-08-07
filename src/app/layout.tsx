@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import Link from "next/link";
+import AuthWidget from "@/components/AuthWidget";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -23,7 +25,31 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex">
+        <aside className="flex w-56 shrink-0 flex-col border-r border-slate-200">
+          <Link
+            href="/"
+            className="border-b border-slate-200 px-5 py-4 font-semibold text-slate-900"
+          >
+            배당으로 해외여행가자!
+          </Link>
+          <nav className="flex flex-col gap-1 p-3 text-sm text-slate-700">
+            <Link href="/about" className="rounded px-3 py-2 hover:bg-slate-100">
+              배당주 투자란?
+            </Link>
+            <Link href="/plans" className="rounded px-3 py-2 hover:bg-slate-100">
+              나의 플랜
+            </Link>
+            <Link href="/stocks" className="rounded px-3 py-2 hover:bg-slate-100">
+              배당킹·배당귀족
+            </Link>
+          </nav>
+          <div className="mt-auto border-t border-slate-200 p-3">
+            <AuthWidget />
+          </div>
+        </aside>
+        <div className="flex-1">{children}</div>
+      </body>
     </html>
   );
 }
