@@ -27,7 +27,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <nav className="fixed inset-y-0 left-0 z-60 hidden w-80 flex-col rounded-r-xl bg-surface py-stack-lg shadow-xl md:flex">
         <div className="mb-stack-lg flex items-center gap-stack-md px-container-margin">
           <Image
-            src="/logo.jpg"
+            src="/logo.png"
             alt="배당 모아 해외여행!"
             width={48}
             height={48}
@@ -69,7 +69,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <header className="sticky top-0 z-50 mx-auto flex w-full max-w-[1200px] items-center justify-between bg-background px-container-margin py-base">
           <Link href="/" className="flex items-center gap-stack-md">
             <Image
-              src="/logo.jpg"
+              src="/logo.png"
               alt="배당 모아 해외여행!"
               width={40}
               height={40}
