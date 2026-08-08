@@ -28,7 +28,7 @@ const pretendardRegular = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "배당 모아 해외여행!",
+  title: "배당 모아 해외여행",
   description: "목표 월배당금액과 투자계획금액으로 AI가 배당주 포트폴리오를 제안해요.",
 };
 

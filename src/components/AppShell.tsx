@@ -25,19 +25,19 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <>
       <nav className="fixed inset-y-0 left-0 z-60 hidden w-80 flex-col rounded-r-xl bg-surface py-stack-lg shadow-xl md:flex">
-        <div className="mb-stack-lg flex items-center gap-stack-md px-container-margin">
+        <div className="mb-stack-lg flex items-center gap-base px-container-margin">
           <Image
-            src="/logo.png"
-            alt="배당 모아 해외여행!"
+            src="/logo-icon.png"
+            alt="배당 모아 해외여행"
             width={48}
             height={48}
             className="h-12 w-12 rounded-full object-contain"
           />
-          <h2 className="text-body-lg font-headline-md leading-tight font-bold text-primary">
-            배당 모아 해외여행!
+          <h2 className="translate-y-0.5 text-headline-lg-mobile font-headline-md leading-tight font-bold text-primary whitespace-nowrap">
+            배당 모아 해외여행
           </h2>
         </div>
-        <ul className="flex flex-grow flex-col gap-stack-sm">
+        <ul className="flex flex-grow flex-col gap-stack-sm px-container-margin">
           {NAV.map((item) => {
             const active = isActive(pathname, item.href);
             return (
@@ -46,8 +46,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                   href={item.href}
                   className={
                     active
-                      ? "mx-2 flex translate-x-1 items-center gap-gutter rounded-lg bg-secondary-container px-4 py-3 font-bold text-on-secondary-container transition-transform"
-                      : "mx-2 flex items-center gap-gutter px-4 py-3 text-on-surface-variant transition-colors hover:bg-surface-container-low"
+                      ? "flex translate-x-1 items-center gap-gutter rounded-lg bg-secondary-container px-4 py-3 font-bold text-on-secondary-container transition-transform"
+                      : "flex items-center gap-gutter px-4 py-3 text-on-surface-variant transition-colors hover:bg-surface-container-low"
                   }
                 >
                   <span
@@ -69,14 +69,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <header className="sticky top-0 z-50 mx-auto flex w-full max-w-[1200px] items-center justify-between bg-background px-container-margin py-base">
           <Link href="/" className="flex items-center gap-stack-md">
             <Image
-              src="/logo.png"
-              alt="배당 모아 해외여행!"
+              src="/logo-icon.png"
+              alt="배당 모아 해외여행"
               width={40}
               height={40}
               className="h-10 w-10 rounded-full object-contain md:hidden"
             />
-            <h1 className="hidden text-headline-md font-headline-md font-bold text-primary sm:block">
-              배당 모아 해외여행!
+            <h1 className="hidden text-headline-md font-headline-md font-bold text-primary sm:block md:hidden">
+              배당 모아 해외여행
             </h1>
           </Link>
           <AuthWidget />

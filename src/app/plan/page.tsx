@@ -5,7 +5,7 @@ export default function PlanPage() {
     <main className="mx-auto w-full max-w-[1200px] px-container-margin py-section-gap pb-[100px] md:pb-section-gap">
       <div className="mx-auto mb-stack-lg max-w-2xl">
         <h2 className="text-headline-lg font-headline-lg text-primary md:text-display-lg md:font-display-lg">
-          배당 모아 해외여행!
+          배당 모아 해외여행
         </h2>
         <p className="mt-stack-md text-body-md font-body-md text-on-surface-variant">
           매달 여행비 정도의 배당금을 목표로, 배당킹/귀족주로 플랜을 짜드려요. 목표

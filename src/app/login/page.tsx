@@ -55,7 +55,7 @@ export default function LoginPage() {
             <div className="mx-auto mb-stack-md h-80 w-96 overflow-hidden rounded-xl">
               <Image
                 src="/logo.png"
-                alt="배당 모아 해외여행!"
+                alt="배당 모아 해외여행"
                 width={384}
                 height={384}
                 unoptimized
