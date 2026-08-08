@@ -52,18 +52,15 @@ export default function LoginPage() {
 
         <div className="relative z-10 p-stack-lg">
           <header className="mb-section-gap text-center">
-            <div className="mx-auto mb-stack-md h-32 w-32 overflow-hidden rounded-xl">
+            <div className="mx-auto mb-stack-md h-96 w-96 overflow-hidden rounded-xl">
               <Image
                 src="/logo.jpg"
                 alt="배당 모아 해외여행!"
-                width={128}
-                height={128}
+                width={384}
+                height={384}
                 className="h-full w-full object-cover"
               />
             </div>
-            <h1 className="mb-stack-sm font-headline-lg text-headline-lg text-primary">
-              배당 모아 해외여행!
-            </h1>
             <p className="font-body-md text-body-md text-on-surface-variant">
               안전하고 간편하게 시작하세요.
             </p>
