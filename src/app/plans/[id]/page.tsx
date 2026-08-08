@@ -179,7 +179,7 @@ export default function PlanDetailPage() {
             {/* 종목 목록 */}
             <div className={`${CARD} col-span-1 lg:col-span-2`}>
               <h3 className="mb-stack-lg text-headline-md font-headline-md text-primary">
-                보유 종목 상세
+                종목 상세
               </h3>
               <div className="space-y-stack-md">
                 {plan.allocations.map((a, i) => (
