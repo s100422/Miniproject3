@@ -1,86 +1,153 @@
-import type { YearlyProjection } from "@/lib/dividendCalc";
+"use client";
 
-function formatUsd(n: number) {
+import {
+  Area,
+  CartesianGrid,
+  ComposedChart,
+  Line,
+  ReferenceLine,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import { goalReachYear, type YearlyProjection } from "@/lib/dividendCalc";
+
+export function formatUsd(n: number) {
   return `$${Math.round(n).toLocaleString()}`;
 }
 
-export default function DividendChart({ data }: { data: YearlyProjection[] }) {
+// 사용자가 지정한 참고 프롬프트(recharts 데모)의 teal-500 / pink-500
+const REINVEST_COLOR = "#14b8a6";
+const GROWTH_COLOR = "#ec4899";
+
+function CustomTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: { dataKey: string; value: number }[];
+  label?: number;
+}) {
+  if (!active || !payload?.length) return null;
+  const growth = payload.find((p) => p.dataKey === "growth")?.value;
+  const reinvest = payload.find((p) => p.dataKey === "growthReinvest")?.value;
+
+  return (
+    <div className="rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-label-md font-label-md shadow-md">
+      <p className="font-bold text-on-surface">{label}년차</p>
+      {reinvest != null && (
+        <p className="mt-stack-sm" style={{ color: REINVEST_COLOR }}>
+          배당성장 + 재투자 <span className="font-bold">{formatUsd(reinvest)}</span>
+        </p>
+      )}
+      {growth != null && (
+        <p style={{ color: GROWTH_COLOR }}>
+          배당성장만 <span className="font-medium">{formatUsd(growth)}</span>
+        </p>
+      )}
+    </div>
+  );
+}
+
+export default function DividendChart({
+  data,
+  goalAnnual,
+}: {
+  data: YearlyProjection[];
+  goalAnnual?: number;
+}) {
   if (data.length === 0) return null;
 
-  const width = 320;
-  const height = 160;
-  const padLeft = 48;
-  const padRight = 12;
-  const padTop = 10;
-  const padBottom = 24;
-  const maxValue = Math.max(...data.map((d) => d.growthReinvest));
-  const minYear = data[0].year;
-  const maxYear = data[data.length - 1].year;
-
-  const x = (year: number) =>
-    padLeft + ((year - minYear) / Math.max(maxYear - minYear, 1)) * (width - padLeft - padRight);
-  const y = (value: number) =>
-    height - padBottom - (value / maxValue) * (height - padTop - padBottom);
-
-  const linePoints = (field: "growth" | "growthReinvest") =>
-    data.map((d) => `${x(d.year)},${y(d[field])}`).join(" ");
-
+  const reachYear = goalAnnual ? goalReachYear(data, goalAnnual) : null;
   const last = data[data.length - 1];
 
   return (
     <div>
-      <div className="flex gap-4 text-xs text-slate-600">
-        <span className="flex items-center gap-1">
-          <span className="inline-block h-0.5 w-4 bg-emerald-600" /> 배당성장 + 재투자
+      <div className="flex flex-wrap gap-gutter text-label-md font-label-md text-on-surface-variant">
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block h-0.5 w-4" style={{ backgroundColor: REINVEST_COLOR }} /> 배당성장
+          + 재투자
         </span>
-        <span className="flex items-center gap-1">
-          <span className="inline-block h-0.5 w-4 border-t border-dashed border-slate-400" />{" "}
+        <span className="flex items-center gap-1.5">
+          <span
+            className="inline-block h-0.5 w-4 border-t border-dashed"
+            style={{ borderColor: GROWTH_COLOR }}
+          />{" "}
           배당성장만
         </span>
+        {goalAnnual != null && (
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block h-0.5 w-4 border-t border-dashed border-error" /> 목표
+          </span>
+        )}
       </div>
 
-      <svg viewBox={`0 0 ${width} ${height}`} className="mt-2 w-full">
-        <line x1={padLeft} y1={y(0)} x2={width - padRight} y2={y(0)} stroke="#cbd5e1" />
-        <text x={padLeft - 4} y={y(0) + 3} fontSize="9" fill="#94a3b8" textAnchor="end">
-          $0
-        </text>
-        <text x={padLeft - 4} y={padTop + 8} fontSize="9" fill="#94a3b8" textAnchor="end">
-          {formatUsd(maxValue)}
-        </text>
-        <polyline
-          points={linePoints("growth")}
-          fill="none"
-          stroke="#94a3b8"
-          strokeWidth={1.5}
-          strokeDasharray="4 3"
-        />
-        <polyline
-          points={linePoints("growthReinvest")}
-          fill="none"
-          stroke="#059669"
-          strokeWidth={2}
-        />
-        {data.map((d) => (
-          <circle key={d.year} cx={x(d.year)} cy={y(d.growthReinvest)} r={2.5} fill="#059669" />
-        ))}
-        {data.map((d) => (
-          <text
-            key={d.year}
-            x={x(d.year)}
-            y={height - 6}
-            fontSize="10"
-            fill="#64748b"
-            textAnchor="middle"
-          >
-            {d.year}년차
-          </text>
-        ))}
-      </svg>
+      <div className="mt-stack-md h-64 w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <ComposedChart data={data} margin={{ top: 16, right: 12, left: 0, bottom: 0 }}>
+            <defs>
+              <linearGradient id="dividendGrowthFill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={REINVEST_COLOR} stopOpacity={0.35} />
+                <stop offset="100%" stopColor={REINVEST_COLOR} stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid stroke="var(--color-surface-container)" vertical={false} />
+            <XAxis
+              dataKey="year"
+              tickFormatter={(y) => `${y}년차`}
+              tick={{ fontSize: 11, fill: "var(--color-on-surface-variant)" }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <YAxis
+              tickFormatter={formatUsd}
+              tick={{ fontSize: 10, fill: "var(--color-on-surface-variant)" }}
+              axisLine={false}
+              tickLine={false}
+              width={60}
+            />
+            <Tooltip content={<CustomTooltip />} cursor={{ stroke: "var(--color-outline-variant)" }} />
+            {goalAnnual != null && (
+              <ReferenceLine
+                y={goalAnnual}
+                stroke="var(--color-error)"
+                strokeDasharray="5 4"
+                label={{
+                  value: `목표 ${formatUsd(goalAnnual)}`,
+                  position: "insideTopRight",
+                  fill: "var(--color-error)",
+                  fontSize: 10,
+                }}
+              />
+            )}
+            <Area type="monotone" dataKey="growthReinvest" stroke="none" fill="url(#dividendGrowthFill)" />
+            <Line
+              type="monotone"
+              dataKey="growth"
+              stroke={GROWTH_COLOR}
+              strokeWidth={1.5}
+              strokeDasharray="4 3"
+              dot={false}
+            />
+            <Line
+              type="monotone"
+              dataKey="growthReinvest"
+              stroke={REINVEST_COLOR}
+              strokeWidth={2}
+              dot={{ r: 3, fill: REINVEST_COLOR }}
+              activeDot={{ r: 5 }}
+            />
+          </ComposedChart>
+        </ResponsiveContainer>
+      </div>
 
-      <p className="mt-2 text-xs text-slate-500">
-        {maxYear}년차 예상 연간 배당금 — 배당성장만: {formatUsd(last.growth)} · 재투자까지 하면:{" "}
-        {formatUsd(last.growthReinvest)} (물가상승 반영한 오늘 가치로는{" "}
-        {formatUsd(last.growthReinvestReal)})
+      <p className="mt-stack-sm text-label-md font-label-md text-on-surface-variant">
+        {last.year}년차 예상 연간 배당금 — 배당성장만: {formatUsd(last.growth)} · 재투자까지 하면:{" "}
+        {formatUsd(last.growthReinvest)}
+        {reachYear && ` · 재투자 시 약 ${Math.round(reachYear)}년차에 목표 도달`} (물가상승 반영한 오늘
+        가치로는 {formatUsd(last.growthReinvestReal)})
       </p>
     </div>
   );

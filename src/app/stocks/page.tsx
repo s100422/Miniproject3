@@ -27,6 +27,120 @@ const SECTOR_LABEL: Record<string, string> = {
   "Communication Services": "통신",
 };
 
+/**
+ * 실제로 널리 알려진 브랜드 컬러만 넣었다(대략 20개). 나머지 68개는 정확한 실제
+ * 브랜드 컬러를 확신할 수 없어서 지어내지 않고 섹터 색(SECTOR_COLOR)으로 대체한다.
+ */
+const BRAND_COLOR: Record<string, { bg: string; text?: string }> = {
+  KO: { bg: "#F40000" }, // Coca-Cola
+  PEP: { bg: "#004B93" }, // PepsiCo
+  PG: { bg: "#003DA5" }, // Procter & Gamble
+  CL: { bg: "#ED1C24" }, // Colgate-Palmolive
+  JNJ: { bg: "#CE0037" }, // Johnson & Johnson
+  MDT: { bg: "#0066B3" }, // Medtronic
+  WMT: { bg: "#0071CE" }, // Walmart
+  TGT: { bg: "#CC0000" }, // Target
+  LOW: { bg: "#004990" }, // Lowe's
+  MCD: { bg: "#DA291C" }, // McDonald's
+  IBM: { bg: "#0F62FE" }, // IBM
+  CAT: { bg: "#FFCD11", text: "#171d1c" }, // Caterpillar (밝은 노랑이라 어두운 글씨)
+  GWW: { bg: "#DA291C" }, // W.W. Grainger
+  XOM: { bg: "#ED1C24" }, // ExxonMobil
+  CVX: { bg: "#0055B8" }, // Chevron
+  ABT: { bg: "#0057B8" }, // Abbott
+  ABBV: { bg: "#A6093D" }, // AbbVie
+  ADP: { bg: "#D22630" }, // ADP
+  LIN: { bg: "#00539F" }, // Linde
+};
+
+/** 브랜드 컬러를 모르는 종목은 섹터별 색으로 최소한의 시각적 구분을 준다. */
+const SECTOR_COLOR: Record<string, string> = {
+  Industrials: "#52606D",
+  "Consumer Staples": "#C17F27",
+  Financials: "#1B3B6F",
+  Utilities: "#1F7A5C",
+  Materials: "#6B5B4D",
+  "Consumer Discretionary": "#C4436B",
+  "Health Care": "#0E7C86",
+  Energy: "#B35C00",
+  "Information Technology": "#4B3F8C",
+  "Real Estate": "#4E7A3D",
+  "Communication Services": "#8C3B7A",
+};
+
+function tickerColor(s: Stock): { bg: string; text: string } {
+  const brand = BRAND_COLOR[s.ticker];
+  if (brand) return { bg: brand.bg, text: brand.text ?? "#ffffff" };
+  return { bg: SECTOR_COLOR[s.sector] ?? "#52606D", text: "#ffffff" };
+}
+
+function StockCard({ s, featured = false }: { s: Stock; featured?: boolean }) {
+  return (
+    <div
+      className={`relative overflow-hidden flex flex-col justify-between bg-surface-container-lowest rounded-2xl border border-surface-variant transition-shadow duration-300 hover:shadow-lg ${
+        featured ? "p-stack-lg sm:p-8" : "p-stack-lg"
+      }`}
+    >
+      {featured && (
+        <div className="pointer-events-none absolute -right-12 -top-12 h-64 w-64 rounded-full bg-secondary/5 blur-3xl" />
+      )}
+
+      <div className="relative z-10 flex justify-between items-start gap-stack-md mb-stack-md">
+        <div className="flex items-center gap-stack-md min-w-0">
+          <div
+            className={`shrink-0 rounded-lg flex items-center justify-center font-bold ${
+              featured ? "w-14 h-14 text-body-lg font-body-lg" : "w-10 h-10 text-label-md font-label-md"
+            }`}
+            style={{ backgroundColor: tickerColor(s).bg, color: tickerColor(s).text }}
+          >
+            {s.ticker}
+          </div>
+          <div className="min-w-0">
+            <h3
+              className={`font-bold text-primary ${
+                featured
+                  ? "text-headline-md font-headline-md"
+                  : "text-body-lg font-body-lg truncate"
+              }`}
+            >
+              {s.name}
+            </h3>
+            <p className="text-label-md font-label-md text-on-surface-variant">
+              {SECTOR_LABEL[s.sector] ?? s.sector}
+            </p>
+          </div>
+        </div>
+        <span className="shrink-0 inline-flex items-center gap-1 bg-secondary-container text-on-secondary-container px-3 py-1 rounded-full text-label-md font-label-md font-bold">
+          <span className="material-symbols-outlined text-[16px] icon-fill">military_tech</span>
+          {s.consecutive_years >= 50 ? "King" : "Aristocrat"}
+        </span>
+      </div>
+
+      <div className="relative z-10 grid grid-cols-2 gap-stack-md mb-stack-md">
+        <div className="bg-surface-container-low rounded-xl p-stack-md">
+          <p className="text-label-md font-label-md text-on-surface-variant mb-stack-sm">
+            연속 배당 성장
+          </p>
+          <p className="text-headline-md font-headline-md text-primary">{s.consecutive_years}년</p>
+        </div>
+        <div className="bg-surface-container-low rounded-xl p-stack-md">
+          <p className="text-label-md font-label-md text-on-surface-variant mb-stack-sm">배당 수익률</p>
+          <p className="text-headline-md font-headline-md text-secondary">{s.dividend_yield}%</p>
+        </div>
+      </div>
+
+      <p className="relative z-10 text-body-md font-body-md text-on-surface-variant mb-stack-md">
+        {s.business_summary}
+      </p>
+
+      <div className="relative z-10 mt-auto border-t border-surface-variant pt-stack-md flex items-center gap-base text-label-md font-label-md text-on-surface-variant">
+        <span className="material-symbols-outlined text-[18px]">calendar_month</span>
+        지급월 {s.payout_months.join("·")}월
+      </div>
+    </div>
+  );
+}
+
 export default function StocksPage() {
   const [stocks, setStocks] = useState<Stock[] | null>(null);
   const [selectedSector, setSelectedSector] = useState<string | null>(null);
@@ -52,67 +166,64 @@ export default function StocksPage() {
   const filteredStocks = stocks?.filter(
     (s) => !selectedSector || s.sector === selectedSector
   );
+  // dividend_stocks 쿼리가 이미 consecutive_years desc로 정렬돼 있어서 첫 번째가 최고 연속성장 종목이다.
+  const [featured, ...restStocks] = filteredStocks ?? [];
 
   return (
-    <main className="mx-auto max-w-3xl px-6 py-16">
-      <h1 className="text-2xl font-semibold text-slate-900">배당킹·배당귀족</h1>
-      <p className="mt-2 text-slate-600">
-        이 서비스가 플랜을 짤 때 사용하는 큐레이션된 배당킹·배당귀족 종목들이에요.
-        섹터를 눌러서 필터링해보세요.
-      </p>
+    <main className="w-full max-w-[1200px] mx-auto px-container-margin py-section-gap pb-[100px] md:pb-section-gap">
+      <div className="flex flex-col gap-stack-md mb-stack-lg">
+        <h2 className="text-headline-lg font-headline-lg md:text-display-lg md:font-display-lg text-primary tracking-tight">
+          배당킹 · 배당귀족
+        </h2>
+        <p className="text-body-lg font-body-lg text-on-surface-variant max-w-2xl">
+          이 서비스가 플랜을 짤 때 사용하는 큐레이션된 배당킹·배당귀족 종목들이에요. 섹터를 눌러서
+          필터링해보세요.
+        </p>
+      </div>
 
-      {stocks === null && <p className="mt-6 text-slate-500">불러오는 중...</p>}
-
-      <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-3">
+      <div className="flex overflow-x-auto gap-base py-2 mb-stack-lg border-b border-surface-variant">
         <button
           type="button"
           onClick={() => setSelectedSector(null)}
-          className={`rounded-lg border p-3 text-left text-sm ${
+          className={`whitespace-nowrap px-4 py-2 rounded-full text-label-md font-label-md transition-colors ${
             selectedSector === null
-              ? "border-emerald-600 bg-emerald-50"
-              : "border-slate-200 hover:border-slate-400"
+              ? "bg-primary text-on-primary"
+              : "bg-surface-container-low text-on-surface-variant hover:bg-surface-container-high border border-outline-variant"
           }`}
         >
-          <p className="font-medium text-slate-900">전체</p>
-          <p className="text-slate-500">{stocks?.length ?? 0}종목</p>
+          전체{" "}
+          <span className="ml-1 font-normal text-outline">({stocks?.length ?? 0})</span>
         </button>
         {sectorCounts.map(([sector, count]) => (
           <button
             key={sector}
             type="button"
             onClick={() => setSelectedSector(sector)}
-            className={`rounded-lg border p-3 text-left text-sm ${
+            className={`whitespace-nowrap px-4 py-2 rounded-full text-label-md font-label-md transition-colors ${
               selectedSector === sector
-                ? "border-emerald-600 bg-emerald-50"
-                : "border-slate-200 hover:border-slate-400"
+                ? "bg-primary text-on-primary"
+                : "bg-surface-container-low text-on-surface-variant hover:bg-surface-container-high border border-outline-variant"
             }`}
           >
-            <p className="font-medium text-slate-900">
-              {sector} <span className="text-slate-400">({SECTOR_LABEL[sector] ?? sector})</span>
-            </p>
-            <p className="text-slate-500">{count}종목</p>
+            {SECTOR_LABEL[sector] ?? sector}{" "}
+            <span className="ml-1 font-normal text-outline">({count})</span>
           </button>
         ))}
       </div>
 
-      <div className="mt-6 space-y-3">
-        {filteredStocks?.map((s) => (
-          <div key={s.ticker} className="rounded-lg border border-slate-200 p-4">
-            <div className="flex items-baseline justify-between">
-              <p className="font-medium text-slate-900">
-                {s.name} <span className="text-slate-400">({s.ticker})</span>
-              </p>
-              <span className="text-sm text-slate-600">
-                연속 {s.consecutive_years}년 · 수익률 {s.dividend_yield}%
-              </span>
-            </div>
-            <p className="mt-1 text-sm text-slate-500">
-              {s.sector} · {s.business_summary}
-            </p>
-            <p className="mt-1 text-xs text-slate-400">
-              배당 지급월: {s.payout_months.join("·")}월
-            </p>
-          </div>
+      {stocks === null && (
+        <p className="text-body-md font-body-md text-on-surface-variant">불러오는 중...</p>
+      )}
+
+      {featured && (
+        <div className="mb-stack-lg">
+          <StockCard s={featured} featured />
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 @2xl:grid-cols-2 gap-gutter">
+        {restStocks.map((s) => (
+          <StockCard key={s.ticker} s={s} />
         ))}
       </div>
     </main>

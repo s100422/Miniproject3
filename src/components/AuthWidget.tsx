@@ -17,25 +17,34 @@ export default function AuthWidget() {
   }, []);
 
   if (session) {
-    const meta = session.user.user_metadata ?? {};
-    const nickname = (meta.name ?? meta.full_name ?? meta.nickname) as string | undefined;
     return (
-      <div className="flex items-center gap-2 text-sm">
-        <span className="text-slate-600">{nickname ?? session.user.email}</span>
+      <div className="flex items-center gap-stack-md">
+        <span className="hidden text-label-md font-label-md text-on-surface-variant sm:block">
+          {session.user.email}
+        </span>
         <button
           type="button"
           onClick={() => supabase.auth.signOut()}
-          className="text-slate-500 underline"
+          className="rounded-full p-2 text-primary transition-colors hover:bg-surface-container-low hover:text-secondary"
+          aria-label="로그아웃"
+          title="로그아웃"
         >
-          로그아웃
+          <span className="material-symbols-outlined icon-fill text-3xl">
+            account_circle
+          </span>
         </button>
       </div>
     );
   }
 
   return (
-    <Link href="/login" className="text-sm text-slate-700 underline">
-      로그인
+    <Link
+      href="/login"
+      className="rounded-full p-2 text-primary transition-colors hover:bg-surface-container-low hover:text-secondary"
+      aria-label="로그인"
+      title="로그인"
+    >
+      <span className="material-symbols-outlined text-3xl">account_circle</span>
     </Link>
   );
 }

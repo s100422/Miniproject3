@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+
+<html lang="ko"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Plan Detail</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500&amp;family=Manrope:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-variant": "#dee3e3",
+                        "on-tertiary-fixed-variant": "#3a4859",
+                        "outline-variant": "#c5c6d0",
+                        "surface-bright": "#f5faf9",
+                        "surface-container-low": "#f0f5f4",
+                        "surface-container-highest": "#dee3e3",
+                        "secondary-container": "#acf0df",
+                        "on-secondary-container": "#2b6f62",
+                        "surface-container-high": "#e4e9e8",
+                        "inverse-on-surface": "#edf2f1",
+                        "tertiary-fixed": "#d6e4f9",
+                        "inverse-surface": "#2c3131",
+                        "on-tertiary": "#ffffff",
+                        "secondary-fixed": "#acf0df",
+                        "background": "#f5faf9",
+                        "on-surface-variant": "#44464f",
+                        "primary-fixed": "#d9e2ff",
+                        "on-tertiary-container": "#7b899c",
+                        "primary": "#00081f",
+                        "primary-fixed-dim": "#afc6ff",
+                        "on-primary": "#ffffff",
+                        "primary-container": "#001e4e",
+                        "on-surface": "#171d1c",
+                        "secondary-fixed-dim": "#91d3c3",
+                        "secondary": "#24695c",
+                        "outline": "#757780",
+                        "on-primary-fixed": "#001944",
+                        "on-secondary-fixed-variant": "#005045",
+                        "on-secondary-fixed": "#00201b",
+                        "on-tertiary-fixed": "#0f1c2c",
+                        "surface": "#f5faf9",
+                        "on-error-container": "#93000a",
+                        "tertiary": "#000917",
+                        "surface-tint": "#475d90",
+                        "tertiary-container": "#142130",
+                        "surface-dim": "#d6dbda",
+                        "on-primary-container": "#7187bd",
+                        "on-primary-fixed-variant": "#2f4677",
+                        "on-secondary": "#ffffff",
+                        "inverse-primary": "#afc6ff",
+                        "on-background": "#171d1c",
+                        "surface-container": "#eaefee",
+                        "error-container": "#ffdad6",
+                        "error": "#ba1a1a",
+                        "on-error": "#ffffff",
+                        "surface-container-lowest": "#ffffff",
+                        "tertiary-fixed-dim": "#bac8dc"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "stack-sm": "4px",
+                        "base": "8px",
+                        "container-margin": "24px",
+                        "gutter": "16px",
+                        "stack-lg": "24px",
+                        "section-gap": "48px",
+                        "stack-md": "12px"
+                    },
+                    "fontFamily": {
+                        "body-md": ["Hanken Grotesk"],
+                        "body-lg": ["Hanken Grotesk"],
+                        "headline-lg-mobile": ["Manrope"],
+                        "label-md": ["Hanken Grotesk"],
+                        "display-lg": ["Manrope"],
+                        "headline-lg": ["Manrope"],
+                        "headline-md": ["Manrope"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined.filled {
+            font-variation-settings: 'FILL' 1;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background font-body-md antialiased pb-24 md:pb-0">
+<!-- TopAppBar -->
+<header class="sticky top-0 w-full z-50 flex justify-between items-center px-container-margin py-base max-w-[1200px] mx-auto bg-background dark:bg-inverse-surface">
+<div class="flex items-center gap-gutter">
+<button class="text-on-surface hover:text-primary transition-colors">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<h1 class="text-headline-md font-headline-md font-bold text-primary dark:text-primary-fixed-dim hidden md:block">Hawaii 2025</h1>
+</div>
+<div class="flex items-center gap-gutter hidden md:flex">
+<nav class="flex gap-gutter">
+<a class="text-on-surface-variant dark:text-outline-variant hover:text-secondary transition-colors duration-200" href="#">Home</a>
+<a class="text-primary dark:text-primary-fixed-dim font-bold border-b-2 border-secondary opacity-80 transition-all" href="#">My Plan</a>
+<a class="text-on-surface-variant dark:text-outline-variant hover:text-secondary transition-colors duration-200" href="#">Dividend Kings</a>
+</nav>
+</div>
+<div class="flex items-center gap-gutter">
+<button class="text-on-surface hover:text-primary transition-colors">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</div>
+</header>
+<main class="max-w-[1200px] mx-auto px-container-margin mt-section-gap space-y-section-gap">
+<!-- Plan Header (Mobile Only) -->
+<div class="md:hidden">
+<h1 class="text-headline-lg-mobile font-headline-lg-mobile text-primary">Hawaii 2025</h1>
+<p class="text-body-md text-on-surface-variant">목표 달성률 45%</p>
+</div>
+<!-- Pill Tabs -->
+<div class="flex overflow-x-auto gap-stack-sm pb-stack-sm no-scrollbar">
+<button class="px-6 py-2 rounded-full bg-primary text-on-primary font-label-md text-label-md whitespace-nowrap transition-colors">플랜 상세</button>
+<button class="px-6 py-2 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md whitespace-nowrap transition-colors">배당 시뮬레이터</button>
+<button class="px-6 py-2 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md whitespace-nowrap transition-colors">배당지급일</button>
+</div>
+<!-- Tab 1: Detail -->
+<section class="space-y-stack-lg">
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-container-margin">
+<!-- Donut Chart Card -->
+<div class="bg-surface-container-lowest rounded-2xl p-container-margin shadow-[0_4px_12px_rgba(0,8,31,0.05)] col-span-1 flex flex-col items-center justify-center">
+<h2 class="text-headline-md font-headline-md text-primary w-full text-left mb-stack-lg">포트폴리오 비중</h2>
+<div class="relative w-48 h-48 rounded-full border-[16px] border-surface-container flex items-center justify-center mb-stack-md">
+<!-- Simulated Donut Chart Segments (CSS Only for visual) -->
+<div class="absolute inset-0 rounded-full border-[16px] border-secondary" style="clip-path: polygon(50% 50%, 50% 0, 100% 0, 100% 50%);"></div>
+<div class="absolute inset-0 rounded-full border-[16px] border-primary-container" style="clip-path: polygon(50% 50%, 100% 50%, 100% 100%, 50% 100%);"></div>
+<div class="absolute inset-0 rounded-full border-[16px] border-tertiary-container" style="clip-path: polygon(50% 50%, 50% 100%, 0 100%, 0 50%);"></div>
+<div class="text-center">
+<span class="text-headline-md font-headline-md text-primary block">3 종목</span>
+</div>
+</div>
+</div>
+<!-- Stock List Card -->
+<div class="bg-surface-container-lowest rounded-2xl p-container-margin shadow-[0_4px_12px_rgba(0,8,31,0.05)] col-span-1 lg:col-span-2">
+<h2 class="text-headline-md font-headline-md text-primary mb-stack-lg">보유 종목 상세</h2>
+<div class="space-y-stack-md">
+<!-- Stock Item -->
+<div class="flex items-center justify-between p-stack-md bg-surface rounded-xl hover:bg-surface-container-low transition-colors">
+<div class="flex items-center gap-gutter">
+<div class="w-3 h-3 rounded-full bg-secondary"></div>
+<div>
+<h3 class="text-body-lg font-bold text-on-surface">O (Realty Income)</h3>
+<p class="text-label-md text-on-surface-variant">부동산 리츠 • 월배당</p>
+</div>
+</div>
+<div class="text-right">
+<p class="text-body-lg font-bold text-primary">45%</p>
+<p class="text-label-md text-secondary">연 5.2% 수익률</p>
+</div>
+</div>
+<!-- Stock Item -->
+<div class="flex items-center justify-between p-stack-md bg-surface rounded-xl hover:bg-surface-container-low transition-colors">
+<div class="flex items-center gap-gutter">
+<div class="w-3 h-3 rounded-full bg-primary-container"></div>
+<div>
+<h3 class="text-body-lg font-bold text-on-surface">SCHD</h3>
+<p class="text-label-md text-on-surface-variant">배당 성장 ETF • 분기배당</p>
+</div>
+</div>
+<div class="text-right">
+<p class="text-body-lg font-bold text-primary">35%</p>
+<p class="text-label-md text-secondary">연 3.8% 수익률</p>
+</div>
+</div>
+<!-- Stock Item -->
+<div class="flex items-center justify-between p-stack-md bg-surface rounded-xl hover:bg-surface-container-low transition-colors">
+<div class="flex items-center gap-gutter">
+<div class="w-3 h-3 rounded-full bg-tertiary-container"></div>
+<div>
+<h3 class="text-body-lg font-bold text-on-surface">KO (Coca-Cola)</h3>
+<p class="text-label-md text-on-surface-variant">필수소비재 • 분기배당</p>
+</div>
+</div>
+<div class="text-right">
+<p class="text-body-lg font-bold text-primary">20%</p>
+<p class="text-label-md text-secondary">연 3.1% 수익률</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pb-4 pt-2 md:hidden shadow-[0_-4px_12px_rgba(0,8,31,0.05)] bg-surface dark:bg-surface-dim rounded-t-xl">
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline-variant px-4 py-1 hover:bg-surface-container-high transition-all" href="#">
+<span class="material-symbols-outlined">home</span>
+<span class="text-label-md font-label-md mt-1">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-secondary-container dark:bg-on-secondary-fixed-variant text-on-secondary-container dark:text-secondary-fixed rounded-full px-4 py-1 scale-95 transition-transform hover:bg-surface-container-high transition-all" href="#">
+<span class="material-symbols-outlined filled">flight_takeoff</span>
+<span class="text-label-md font-label-md mt-1">My Plan</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline-variant px-4 py-1 hover:bg-surface-container-high transition-all" href="#">
+<span class="material-symbols-outlined">military_tech</span>
+<span class="text-label-md font-label-md mt-1">Dividend Kings</span>
+</a>
+</nav>
+</body></html>

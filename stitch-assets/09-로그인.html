@@ -1,0 +1,201 @@
+<!DOCTYPE html><html lang="ko" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>배당금으로 해외여행가자! - 로그인</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500&amp;family=Manrope:wght@600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-variant": "#dee3e3",
+                        "on-tertiary-fixed-variant": "#3a4859",
+                        "outline-variant": "#c5c6d0",
+                        "surface-bright": "#f5faf9",
+                        "surface-container-low": "#f0f5f4",
+                        "surface-container-highest": "#dee3e3",
+                        "secondary-container": "#acf0df",
+                        "on-secondary-container": "#2b6f62",
+                        "surface-container-high": "#e4e9e8",
+                        "inverse-on-surface": "#edf2f1",
+                        "tertiary-fixed": "#d6e4f9",
+                        "inverse-surface": "#2c3131",
+                        "on-tertiary": "#ffffff",
+                        "secondary-fixed": "#acf0df",
+                        "background": "#f5faf9",
+                        "on-surface-variant": "#44464f",
+                        "primary-fixed": "#d9e2ff",
+                        "on-tertiary-container": "#7b899c",
+                        "primary": "#00081f",
+                        "primary-fixed-dim": "#afc6ff",
+                        "on-primary": "#ffffff",
+                        "primary-container": "#001e4e",
+                        "on-surface": "#171d1c",
+                        "secondary-fixed-dim": "#91d3c3",
+                        "secondary": "#24695c",
+                        "outline": "#757780",
+                        "on-primary-fixed": "#001944",
+                        "on-secondary-fixed-variant": "#005045",
+                        "on-secondary-fixed": "#00201b",
+                        "on-tertiary-fixed": "#0f1c2c",
+                        "surface": "#f5faf9",
+                        "on-error-container": "#93000a",
+                        "tertiary": "#000917",
+                        "surface-tint": "#475d90",
+                        "tertiary-container": "#142130",
+                        "surface-dim": "#d6dbda",
+                        "on-primary-container": "#7187bd",
+                        "on-primary-fixed-variant": "#2f4677",
+                        "on-secondary": "#ffffff",
+                        "inverse-primary": "#afc6ff",
+                        "on-background": "#171d1c",
+                        "surface-container": "#eaefee",
+                        "error-container": "#ffdad6",
+                        "error": "#ba1a1a",
+                        "on-error": "#ffffff",
+                        "surface-container-lowest": "#ffffff",
+                        "tertiary-fixed-dim": "#bac8dc"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "stack-sm": "4px",
+                        "base": "8px",
+                        "container-margin": "24px",
+                        "gutter": "16px",
+                        "stack-lg": "24px",
+                        "section-gap": "48px",
+                        "stack-md": "12px"
+                    },
+                    "fontFamily": {
+                        "body-md": ["Hanken Grotesk"],
+                        "body-lg": ["Hanken Grotesk"],
+                        "headline-lg-mobile": ["Manrope"],
+                        "label-md": ["Hanken Grotesk"],
+                        "display-lg": ["Manrope"],
+                        "headline-lg": ["Manrope"],
+                        "headline-md": ["Manrope"]
+                    },
+                    "fontSize": {
+                        "body-md": ["16px", { "lineHeight": "1.6", "letterSpacing": "0", "fontWeight": "400" }],
+                        "body-lg": ["18px", { "lineHeight": "1.6", "letterSpacing": "0", "fontWeight": "400" }],
+                        "headline-lg-mobile": ["28px", { "lineHeight": "1.3", "fontWeight": "700" }],
+                        "label-md": ["14px", { "lineHeight": "1.4", "letterSpacing": "0.02em", "fontWeight": "500" }],
+                        "display-lg": ["40px", { "lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "headline-lg": ["32px", { "lineHeight": "1.3", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+                        "headline-md": ["24px", { "lineHeight": "1.4", "letterSpacing": "-0.01em", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-background text-on-surface min-h-screen flex items-center justify-center p-container-margin font-body-md selection:bg-secondary-container selection:text-on-secondary-container">
+<!-- Login Container (Bento/Glassmorphism feel) -->
+<main class="w-full max-w-[480px] bg-surface-container-lowest rounded-2xl shadow-[0_4px_12px_rgba(0,8,31,0.05)] overflow-hidden relative">
+<!-- Abstract Decoration -->
+<div class="absolute top-0 right-0 w-32 h-32 bg-secondary/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
+<div class="absolute bottom-0 left-0 w-40 h-40 bg-primary/5 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2 pointer-events-none"></div>
+<div class="p-stack-lg relative z-10">
+<!-- Header -->
+<header class="text-center mb-section-gap">
+<div class="w-32 h-32 mb-stack-md mx-auto overflow-hidden rounded-xl">
+  <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuCFjExS3xabircXg9cdYfurJ7bkINO8YXg_-va7191OvbmolbsgL0YoDWfvEkjZNOh_NvpJteLEDx_oAXhIsoe8N1xz6PgC3IQBwRwim2SsrxGQ8BC5Na1gbox_pn8VE66imuU0SXTBauKMvrxK6K3M61C2180_SgrZE5ZjSKHEWJpuKzIcQmKvY_UCpRCONqoh90NzbUPcFFwLEjNLeY9Fd1c5IzMZ84Ifv2v1vEXH9VY1J2D_fssV4g" alt="배당 모아 해외여행! 로고" class="w-full h-full object-cover">
+</div>
+<h1 class="font-headline-lg text-headline-lg text-primary mb-stack-sm md:font-headline-lg md:text-headline-lg font-headline-lg-mobile text-headline-lg-mobile">배당 모아 해외여행!</h1>
+<p class="font-body-md text-body-md text-on-surface-variant">안전하고 간편하게 시작하세요.</p>
+</header>
+<!-- Progress Indicator -->
+<div class="flex items-center justify-between mb-stack-lg px-2">
+<div class="flex-1 flex flex-col items-center">
+<div class="w-8 h-8 rounded-full bg-primary text-on-primary flex items-center justify-center font-label-md text-label-md shadow-md shadow-primary/10">1</div>
+<span class="font-label-md text-label-md text-primary mt-base">정보 입력</span>
+</div>
+<div class="flex-1 h-[2px] bg-surface-variant relative mx-2">
+<div class="absolute inset-y-0 left-0 w-1/2 bg-primary"></div>
+</div>
+<div class="flex-1 flex flex-col items-center opacity-50">
+<div class="w-8 h-8 rounded-full bg-surface-container-highest text-on-surface flex items-center justify-center font-label-md text-label-md border border-outline-variant">2</div>
+<span class="font-label-md text-label-md text-on-surface-variant mt-base">인증 확인</span>
+</div>
+</div>
+<!-- Step 1 Form -->
+<form class="space-y-stack-md" id="step1" onsubmit="event.preventDefault(); document.getElementById('step1').classList.add('hidden'); document.getElementById('step2').classList.remove('hidden');">
+<div>
+<label class="block font-label-md text-label-md text-on-surface mb-stack-sm" for="email">이메일 주소</label>
+<div class="relative">
+<span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-outline">mail</span>
+</span>
+<input class="block w-full pl-10 pr-3 py-3 border border-outline-variant rounded-lg bg-surface focus:ring-1 focus:ring-primary focus:border-primary focus:shadow-[0_0_0_2px_rgba(36,105,92,0.1)] transition-all font-body-md text-body-md text-on-surface outline-none" id="email" placeholder="example@email.com" required="" type="email">
+</div>
+</div>
+<div>
+<label class="block font-label-md text-label-md text-on-surface mb-stack-sm" for="nickname">닉네임 (신규 가입 시)</label>
+<div class="relative">
+<span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-outline">person</span>
+</span>
+<input class="block w-full pl-10 pr-3 py-3 border border-outline-variant rounded-lg bg-surface focus:ring-1 focus:ring-primary focus:border-primary focus:shadow-[0_0_0_2px_rgba(36,105,92,0.1)] transition-all font-body-md text-body-md text-on-surface outline-none" id="nickname" placeholder="투자자 닉네임" required="" type="text">
+</div>
+</div>
+<div class="pt-stack-md">
+<button class="w-full py-3 bg-primary text-on-primary rounded-[16px] font-label-md text-label-md hover:bg-primary-container transition-colors shadow-sm active:scale-[0.98]" type="submit">
+                        인증코드 받기
+                    </button>
+</div>
+</form>
+<!-- Step 2 Form (Hidden initially for demo purposes, representing next state) -->
+<form class="space-y-stack-md hidden" id="step2" onsubmit="event.preventDefault(); alert('로그인 성공!');">
+<div class="text-center mb-stack-md">
+<p class="font-body-md text-body-md text-on-surface-variant">입력하신 이메일로 6자리 인증코드가 발송되었습니다.</p>
+</div>
+<div>
+<label class="block font-label-md text-label-md text-on-surface mb-stack-sm text-center" for="otp">인증코드</label>
+<div class="flex justify-center gap-2">
+<input class="w-12 h-14 text-center font-headline-md text-headline-md border border-outline-variant rounded-lg bg-surface focus:ring-1 focus:ring-primary focus:border-primary focus:shadow-[0_0_0_2px_rgba(36,105,92,0.1)] transition-all outline-none" maxlength="1" required="" type="text">
+<input class="w-12 h-14 text-center font-headline-md text-headline-md border border-outline-variant rounded-lg bg-surface focus:ring-1 focus:ring-primary focus:border-primary focus:shadow-[0_0_0_2px_rgba(36,105,92,0.1)] transition-all outline-none" maxlength="1" required="" type="text">
+<input class="w-12 h-14 text-center font-headline-md text-headline-md border border-outline-variant rounded-lg bg-surface focus:ring-1 focus:ring-primary focus:border-primary focus:shadow-[0_0_0_2px_rgba(36,105,92,0.1)] transition-all outline-none" maxlength="1" required="" type="text">
+<input class="w-12 h-14 text-center font-headline-md text-headline-md border border-outline-variant rounded-lg bg-surface focus:ring-1 focus:ring-primary focus:border-primary focus:shadow-[0_0_0_2px_rgba(36,105,92,0.1)] transition-all outline-none" maxlength="1" required="" type="text">
+<input class="w-12 h-14 text-center font-headline-md text-headline-md border border-outline-variant rounded-lg bg-surface focus:ring-1 focus:ring-primary focus:border-primary focus:shadow-[0_0_0_2px_rgba(36,105,92,0.1)] transition-all outline-none" maxlength="1" required="" type="text">
+<input class="w-12 h-14 text-center font-headline-md text-headline-md border border-outline-variant rounded-lg bg-surface focus:ring-1 focus:ring-primary focus:border-primary focus:shadow-[0_0_0_2px_rgba(36,105,92,0.1)] transition-all outline-none" maxlength="1" required="" type="text">
+</div>
+<div class="text-center mt-base">
+<button class="text-secondary hover:text-on-secondary-container font-label-md text-label-md transition-colors" onclick="document.getElementById('step2').classList.add('hidden'); document.getElementById('step1').classList.remove('hidden');" type="button">다시 보내기 (02:59)</button>
+</div>
+</div>
+<div class="pt-stack-md">
+<button class="w-full py-3 bg-secondary text-on-secondary rounded-[16px] font-label-md text-label-md hover:bg-on-secondary-container transition-colors shadow-sm active:scale-[0.98]" type="submit">
+                        확인
+                    </button>
+</div>
+</form>
+</div>
+</main>
+<script>
+        // Simple script to auto-focus next OTP input
+        const otpInputs = document.querySelectorAll('#step2 input[type="text"]');
+        otpInputs.forEach((input, index) => {
+            input.addEventListener('input', () => {
+                if (input.value.length === 1 && index < otpInputs.length - 1) {
+                    otpInputs[index + 1].focus();
+                }
+            });
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Backspace' && input.value.length === 0 && index > 0) {
+                    otpInputs[index - 1].focus();
+                }
+            });
+        });
+    </script>
+
+
+</body></html>
