@@ -39,19 +39,62 @@ type InitialValues = {
   monthly_investment: number;
 };
 
+const STORAGE_KEY = "planBuilderState";
+
+// "출처" 링크로 나갔다가 뒤로가기로 돌아오면 탭이 새로고침되면서 입력값/생성 결과가 다
+// 날아가버린다(React state는 메모리에만 있어서). 새로고침돼도 그대로 복원되도록 마운트
+// 시점에 sessionStorage에서 한 번만 읽어온다(useState의 lazy initializer는 첫 렌더에만
+// 실행되니 렌더마다 다시 읽지 않는다).
+function loadSaved(): Record<string, unknown> {
+  if (typeof window === "undefined") return {};
+  try {
+    return JSON.parse(sessionStorage.getItem(STORAGE_KEY) ?? "{}");
+  } catch {
+    return {};
+  }
+}
+
 export default function PlanBuilder({ initialValues }: { initialValues?: InitialValues }) {
   const router = useRouter();
-  const [target, setTarget] = useState(initialValues?.target_monthly_dividend?.toString() ?? "");
-  const [monthlyInvestment, setMonthlyInvestment] = useState(
-    initialValues?.monthly_investment?.toString() ?? ""
-  );
+  const [target, setTarget] = useState(() => {
+    if (initialValues) return initialValues.target_monthly_dividend.toString();
+    const saved = loadSaved().target;
+    return typeof saved === "string" ? saved : "";
+  });
+  const [monthlyInvestment, setMonthlyInvestment] = useState(() => {
+    if (initialValues) return initialValues.monthly_investment.toString();
+    const saved = loadSaved().monthlyInvestment;
+    return typeof saved === "string" ? saved : "";
+  });
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [candidates, setCandidates] = useState<Candidate[] | null>(null);
-  const [excluded, setExcluded] = useState<string[]>([]);
-  const [preference, setPreference] = useState("");
+  const [candidates, setCandidates] = useState<Candidate[] | null>(() => {
+    if (initialValues) return null;
+    const saved = loadSaved().candidates;
+    return Array.isArray(saved) ? saved : null;
+  });
+  const [excluded, setExcluded] = useState<string[]>(() => {
+    if (initialValues) return [];
+    const saved = loadSaved().excluded;
+    return Array.isArray(saved) ? saved : [];
+  });
+  const [preference, setPreference] = useState(() => {
+    if (initialValues) return "";
+    const saved = loadSaved().preference;
+    return typeof saved === "string" ? saved : "";
+  });
+
+  // 플랜 상세화면의 "입력값 수정하기"(initialValues 있음)는 항상 그 플랜 값으로 시작해야
+  // 하므로 저장 대상에서 뺀다.
+  useEffect(() => {
+    if (initialValues) return;
+    sessionStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ target, monthlyInvestment, preference, excluded, candidates })
+    );
+  }, [initialValues, target, monthlyInvestment, preference, excluded, candidates]);
 
   const MAX_AMOUNT = 1_000_000;
   const targetNum = Number(target);
@@ -151,6 +194,7 @@ export default function PlanBuilder({ initialValues }: { initialValues?: Initial
         setError("저장에 실패했어요.");
         return;
       }
+      sessionStorage.removeItem(STORAGE_KEY);
       router.push(`/plans/${data.id}`);
     } finally {
       setSaving(false);
@@ -297,7 +341,20 @@ export default function PlanBuilder({ initialValues }: { initialValues?: Initial
                   <span className="material-symbols-outlined text-sm">trending_up</span>
                   월 {c.monthly_investment}달러 투자 시나리오
                 </div>
-                <h3 className="mb-stack-lg text-headline-md font-headline-md text-primary">{c.concept}</h3>
+                <h3 className="mb-stack-md text-headline-md font-headline-md text-primary">{c.concept}</h3>
+
+                <div
+                  className={
+                    c.goal_achieved
+                      ? "mb-stack-lg flex items-start gap-2 rounded-lg bg-secondary-container p-4 text-body-md font-body-md text-on-secondary-container"
+                      : "mb-stack-lg flex items-start gap-2 rounded-lg bg-error-container p-4 text-body-md font-body-md text-on-error-container"
+                  }
+                >
+                  <span className="material-symbols-outlined icon-fill shrink-0 text-xl">
+                    tips_and_updates
+                  </span>
+                  <p>{c.advice_text}</p>
+                </div>
 
                 <div className="mb-stack-lg flex flex-col gap-stack-md">
                   {c.allocations.map((a) => (
@@ -335,7 +392,7 @@ export default function PlanBuilder({ initialValues }: { initialValues?: Initial
                             <a
                               href={a.risk.source_url}
                               target="_blank"
-                              rel="noreferrer"
+                              rel="noopener noreferrer"
                               className="underline"
                             >
                               출처
@@ -366,16 +423,6 @@ export default function PlanBuilder({ initialValues }: { initialValues?: Initial
                 </div>
 
                 <div>
-                  <p
-                    className={
-                      c.goal_achieved
-                        ? "mb-stack-md rounded-lg bg-surface-container-low p-4 text-body-md font-body-md text-on-surface-variant"
-                        : "mb-stack-md rounded-lg bg-error-container p-4 text-body-md font-body-md text-on-error-container"
-                    }
-                  >
-                    {c.advice_text}
-                  </p>
-
                   <button
                     type="button"
                     disabled={saving}
