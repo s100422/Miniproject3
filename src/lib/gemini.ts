@@ -10,11 +10,12 @@ export type DividendStock = {
 export type PlanInput = {
   target_monthly_dividend: number;
   monthly_investment: number;
+  preference?: string;
 };
 
 export type Candidate = {
   concept: string;
-  allocations: { ticker: string; weight_pct: number }[];
+  allocations: { ticker: string; weight_pct: number; reason: string }[];
   advice_text: string;
 };
 
@@ -27,13 +28,24 @@ const SYSTEM_INSTRUCTION = `당신은 배당투자 플래너 AI입니다. 사용
 2. 매달 배당이 들어오는 게 이 서비스의 핵심 가치입니다. 각 종목의 payout_months(실제
    배당 지급월)를 참고해서, 후보 하나의 allocations에 포함된 종목들의 payout_months를
    전부 합쳤을 때 1월부터 12월까지 빠짐없이 커버되도록 구성하세요.
-3. weight_pct의 합은 정확히 100이어야 합니다.
-4. 두 후보는 서로 다른 트레이드오프를 가져야 합니다(예: 하나는 우량주 중심으로 균형있게,
+3. 특정 섹터에 비중을 몰아넣지 마세요. 각 종목의 sector 정보를 참고해서, 후보 하나에서
+   같은 섹터의 weight_pct 합계가 40%를 넘지 않도록 섹터를 분산해서 담으세요.
+4. weight_pct의 합은 정확히 100이어야 합니다.
+5. 각 종목의 weight_pct는 그 종목의 dividend_yield(배당수익률)와 consecutive_years(연속
+   증가연수)가 높을수록, 그리고 12개월 커버리지를 위해 꼭 필요한 종목일수록 높게 주세요.
+   allocations의 각 항목에 reason 필드를 추가해서, 그 종목의 실제 dividend_yield 또는
+   consecutive_years 숫자를 반드시 인용해서 왜 이 비중을 줬는지 한 문장으로 설명하세요.
+   숫자를 인용하지 않은 추상적인 설명은 안 됩니다.
+6. 두 후보는 서로 다른 트레이드오프를 가져야 합니다(예: 하나는 우량주 중심으로 균형있게,
    다른 하나는 고배당 위주로 예산을 아끼는 방향 등). concept 필드에 한 줄로 그 차이를
    요약하세요.
-5. 금액 계산(연차별 배당금, 목표 도달 시점)은 당신이 하지 않습니다 — 서버가 별도로
+7. 금액 계산(연차별 배당금, 목표 도달 시점)은 당신이 하지 않습니다 — 서버가 별도로
    계산합니다. 당신은 배분과 조언만 담당합니다. 목표 도달 가능성을 판단하지 마세요.
-6. advice_text에는 배분 이유와 함께 전략적 매수/매도 조언을 1~2문장 포함하세요.
+8. advice_text에는 배분 이유와 함께 전략적 매수/매도 조언을 1~2문장 포함하세요.
+9. 사용자가 "선호/제외 조건"을 추가로 남길 수 있습니다. 이 조건은 참고해서 반영하되,
+   위 1~4번 규칙(리스트 안 종목만 사용, 12개월 커버리지, 섹터 40% 이하, 비중합 100)이
+   항상 우선합니다. 조건을 지키면 1~4번 규칙이 깨지는 경우엔 그 조건을 무시하고, 왜
+   반영하지 못했는지 advice_text에 한 문장으로 설명하세요.
 
 다른 텍스트 없이 아래 JSON 형식으로만 응답하세요.`;
 
@@ -55,8 +67,9 @@ const RESPONSE_SCHEMA = {
               properties: {
                 ticker: { type: "STRING" },
                 weight_pct: { type: "NUMBER" },
+                reason: { type: "STRING" },
               },
-              required: ["ticker", "weight_pct"],
+              required: ["ticker", "weight_pct", "reason"],
             },
           },
           advice_text: { type: "STRING" },
@@ -69,8 +82,11 @@ const RESPONSE_SCHEMA = {
 };
 
 function buildUserPrompt(input: PlanInput, stocks: DividendStock[]): string {
+  const preferenceLine = input.preference?.trim()
+    ? `\n선호/제외 조건: ${input.preference.trim()}`
+    : "";
   return `목표 월배당금액: $${input.target_monthly_dividend}
-월 투자계획금액(고정): $${input.monthly_investment}
+월 투자계획금액(고정): $${input.monthly_investment}${preferenceLine}
 사용 가능한 배당주 리스트(JSON): ${JSON.stringify(
     stocks.map((s) => ({
       ticker: s.ticker,
@@ -124,6 +140,15 @@ export async function callGemini(
   return candidates;
 }
 
+// reason에 그 종목의 실제 dividend_yield 또는 consecutive_years 숫자가 인용됐는지 확인한다.
+// 인용된 숫자가 실제 데이터와 다르면(혹은 숫자가 아예 없으면) 근거 없이 지어낸 설명으로 본다.
+function citesRealData(reason: string, stock: DividendStock): boolean {
+  const numbers = reason.match(/\d+(\.\d+)?/g)?.map(Number) ?? [];
+  return numbers.some(
+    (n) => n === stock.consecutive_years || Math.abs(n - stock.dividend_yield) < 0.15
+  );
+}
+
 export function validateCandidate(
   candidate: Candidate,
   stocks: DividendStock[]
@@ -133,6 +158,9 @@ export function validateCandidate(
   for (const a of candidate.allocations) {
     if (!stockMap.has(a.ticker)) {
       return { valid: false, reason: `환각 티커: ${a.ticker}` };
+    }
+    if (!citesRealData(a.reason, stockMap.get(a.ticker)!)) {
+      return { valid: false, reason: `근거 없는 비중 설명: ${a.ticker}` };
     }
   }
 

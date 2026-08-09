@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { callGemini, validateCandidate, type PlanInput, type DividendStock } from "@/lib/gemini";
 import { fetchPrices } from "@/lib/stockPrice";
+import { screenRisks } from "@/lib/riskScreen";
 import {
   projectDividendGrowth,
   realisticBestAnnualDividend,
@@ -35,9 +36,18 @@ export async function POST(request: Request) {
     }
   }
 
-  const { data: stocks, error } = await supabase.from("dividend_stocks").select("*");
-  if (error || !stocks || stocks.length === 0) {
+  const { data: allStocks, error } = await supabase.from("dividend_stocks").select("*");
+  if (error || !allStocks || allStocks.length === 0) {
     return NextResponse.json({ error: "지금은 추천 가능한 배당주가 없어요." }, { status: 503 });
+  }
+
+  // 리스크 스크리닝에서 "빼고 다시 만들기"를 누르면 그 티커를 후보 풀에서 제외하고 재생성한다
+  const exclude: string[] = Array.isArray(body.exclude)
+    ? body.exclude.filter((t: unknown) => typeof t === "string")
+    : [];
+  const stocks = allStocks.filter((s) => !exclude.includes(s.ticker));
+  if (stocks.length === 0) {
+    return NextResponse.json({ error: "제외한 종목이 너무 많아 추천할 배당주가 없어요." }, { status: 400 });
   }
 
   const stockRates = Object.fromEntries(
@@ -71,7 +81,8 @@ export async function POST(request: Request) {
     );
   }
 
-  const input: PlanInput = { target_monthly_dividend, monthly_investment };
+  const preference = typeof body.preference === "string" ? body.preference.slice(0, 300) : "";
+  const input: PlanInput = { target_monthly_dividend, monthly_investment, preference };
 
   let candidates;
   try {
@@ -88,8 +99,11 @@ export async function POST(request: Request) {
   }
   const stockInfo = Object.fromEntries((stocks as StockRow[]).map((s) => [s.ticker, s]));
 
-  // 플랜은 "지금 시가" 기준으로 짜는 것이므로, 생성 시점 주가를 함께 저장해 스냅샷으로 남긴다
-  const prices = await fetchPrices(candidates.flatMap((c) => c.allocations.map((a) => a.ticker)));
+  const allTickers = candidates.flatMap((c) => c.allocations.map((a) => a.ticker));
+  // 플랜은 "지금 시가" 기준으로 짜는 것이므로, 생성 시점 주가를 함께 저장해 스냅샷으로 남긴다.
+  // 리스크 스크리닝(최신 뉴스 검색)은 주가 조회와 마찬가지로 부가 정보라 병렬로 조회하고,
+  // 실패해도 플랜 생성 자체는 막지 않는다(screenRisks 내부에서 fail-open 처리).
+  const [prices, risks] = await Promise.all([fetchPrices(allTickers), screenRisks(allTickers)]);
 
   const results = candidates.map((c) => {
     const rows = projectDividendGrowth(c.allocations, stockRates, monthly_investment, 360);
@@ -108,6 +122,7 @@ export async function POST(request: Request) {
         dividend_growth_5y: stockInfo[a.ticker].dividend_growth_5y,
         payout_months: stockInfo[a.ticker].payout_months,
         price: prices[a.ticker] ?? null,
+        risk: risks[a.ticker] ?? null,
       })),
       monthly_investment,
       chart_data,

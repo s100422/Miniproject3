@@ -17,6 +17,12 @@ type Allocation = {
   dividend_growth_5y: number;
   payout_months: number[];
   price: number | null;
+  reason: string;
+  risk: {
+    signal: "dividend_cut" | "dividend_increase";
+    reason: string;
+    source_url: string;
+  } | null;
 };
 
 type Candidate = {
@@ -44,6 +50,8 @@ export default function PlanBuilder({ initialValues }: { initialValues?: Initial
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [candidates, setCandidates] = useState<Candidate[] | null>(null);
+  const [excluded, setExcluded] = useState<string[]>([]);
+  const [preference, setPreference] = useState("");
 
   const MAX_AMOUNT = 1_000_000;
   const targetNum = Number(target);
@@ -84,7 +92,7 @@ export default function PlanBuilder({ initialValues }: { initialValues?: Initial
       ? `월 ${usd(targetNum)}를 받으려면 월 ${usd(Math.ceil(targetNum / maxPerDollar))} 이상은 투자해야 해요.`
       : "매달 꾸준히 넣을 수 있는 금액이 좋아요. 월 $100~500으로 많이 시작해요.";
 
-  async function handleSubmit() {
+  async function handleSubmit(excludeList: string[] = excluded) {
     setLoading(true);
     setError(null);
     setCandidates(null);
@@ -95,6 +103,8 @@ export default function PlanBuilder({ initialValues }: { initialValues?: Initial
         body: JSON.stringify({
           target_monthly_dividend: Number(target),
           monthly_investment: Number(monthlyInvestment),
+          exclude: excludeList,
+          preference,
         }),
       });
       const data = await res.json();
@@ -108,6 +118,13 @@ export default function PlanBuilder({ initialValues }: { initialValues?: Initial
     } finally {
       setLoading(false);
     }
+  }
+
+  // 리스크 스크리닝은 배분을 자동으로 바꾸지 않는다 — 사용자가 직접 종목을 빼고 재생성해야 한다
+  function excludeAndRegenerate(ticker: string) {
+    const next = [...excluded, ticker];
+    setExcluded(next);
+    handleSubmit(next);
   }
 
   async function handleSelect(candidate: Candidate) {
@@ -195,6 +212,23 @@ export default function PlanBuilder({ initialValues }: { initialValues?: Initial
             </div>
             <p className="mt-2 text-label-md font-label-md text-secondary">{investHint}</p>
           </div>
+
+          <div>
+            <label
+              htmlFor="preference"
+              className="mb-stack-sm block text-label-md font-label-md text-on-surface-variant"
+            >
+              선호/제외 조건 (선택)
+            </label>
+            <textarea
+              id="preference"
+              rows={2}
+              className="w-full rounded-xl border border-outline-variant bg-surface p-4 text-body-md font-body-md transition-shadow focus:border-primary focus:ring-1 focus:ring-secondary focus:outline-none"
+              value={preference}
+              onChange={(e) => setPreference(e.target.value)}
+              placeholder="예: 담배·에너지주는 빼줘, 안정적인 우량주 위주로"
+            />
+          </div>
         </div>
 
         {inputError && (
@@ -207,7 +241,7 @@ export default function PlanBuilder({ initialValues }: { initialValues?: Initial
         <button
           type="button"
           disabled={!allFilled || !!inputError || loading}
-          onClick={handleSubmit}
+          onClick={() => handleSubmit()}
           className="w-full rounded-xl bg-primary py-4 text-body-lg font-body-lg font-bold text-on-primary transition-opacity hover:opacity-90 disabled:bg-surface-container-high disabled:text-outline"
         >
           {loading ? "생성 중..." : "플랜 만들기"}
@@ -219,7 +253,7 @@ export default function PlanBuilder({ initialValues }: { initialValues?: Initial
           <p className="text-body-md font-body-md text-on-error-container">{error}</p>
           <button
             type="button"
-            onClick={handleSubmit}
+            onClick={() => handleSubmit()}
             className="mt-stack-md rounded-lg bg-primary px-4 py-2 text-label-md font-label-md font-bold text-on-primary transition-opacity hover:opacity-90"
           >
             다시 시도
@@ -231,6 +265,14 @@ export default function PlanBuilder({ initialValues }: { initialValues?: Initial
         <p className="mx-auto mt-section-gap max-w-4xl rounded-xl bg-surface-container-low px-4 py-3 text-label-md font-label-md text-on-surface-variant">
           표시된 주가는 <strong className="text-primary">지금 이 플랜을 만드는 시점</strong>의 값이에요.
           주가는 이후에 오르내릴 수 있지만, 이 플랜은 지금 시가를 기준으로 계산했어요.
+        </p>
+      )}
+
+      {candidates?.some((c) => c.allocations.some((a) => a.risk)) && (
+        <p className="mx-auto mt-stack-sm max-w-4xl rounded-xl bg-surface-container-low px-4 py-3 text-label-md font-label-md text-on-surface-variant">
+          아래 배당 소식은 <strong className="text-primary">배당 데이터 기준으로 이미 짜인 포트폴리오</strong>에 대해
+          그 이후 확인된 최신 뉴스예요. 배분 비중에는 반영되지 않았으니, 참고해서 필요하면 직접 종목을 빼고
+          다시 만들어보세요.
         </p>
       )}
 
@@ -275,6 +317,40 @@ export default function PlanBuilder({ initialValues }: { initialValues?: Initial
                           {a.price != null && ` · 주가 $${a.price.toFixed(2)}`} · 배당지급월{" "}
                           {a.payout_months.join("·")}월
                         </p>
+                        <p className="mt-stack-sm text-label-md font-label-md text-outline">
+                          {a.reason}
+                        </p>
+                        {a.risk && (
+                          <div
+                            className={`mt-stack-sm flex flex-wrap items-center gap-2 rounded-lg p-2 text-label-md font-label-md ${
+                              a.risk.signal === "dividend_cut"
+                                ? "bg-error-container text-on-error-container"
+                                : "bg-secondary-container text-on-secondary-container"
+                            }`}
+                          >
+                            <span className="material-symbols-outlined text-base">
+                              {a.risk.signal === "dividend_cut" ? "warning" : "trending_up"}
+                            </span>
+                            <span>{a.risk.reason}</span>
+                            <a
+                              href={a.risk.source_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="underline"
+                            >
+                              출처
+                            </a>
+                            {a.risk.signal === "dividend_cut" && (
+                              <button
+                                type="button"
+                                onClick={() => excludeAndRegenerate(a.ticker)}
+                                className="rounded-full bg-surface px-3 py-1 text-on-surface transition-colors hover:bg-surface-container-high"
+                              >
+                                이 종목 빼고 다시 만들기
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </div>
                       <span className="shrink-0 text-body-md font-body-md font-bold text-secondary">
                         {a.weight_pct}%

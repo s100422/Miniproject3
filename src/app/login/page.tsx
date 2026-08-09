@@ -28,7 +28,7 @@ export default function LoginPage() {
   async function signUp() {
     setLoading(true);
     setError(null);
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: { emailRedirectTo: `${window.location.origin}/` },
@@ -36,6 +36,14 @@ export default function LoginPage() {
     setLoading(false);
     if (error) {
       setError("회원가입에 실패했어요. 잠시 후 다시 시도해주세요.");
+      return;
+    }
+    // Supabase는 이미 가입(인증완료)된 이메일로 다시 가입해도 에러를 던지지 않는다
+    // (이메일 존재 여부를 외부에서 추측할 수 없게 하려는 보안 조치). 대신 이 경우
+    // identities가 빈 배열이거나 undefined로 온다 — length===0으로만 체크하면
+    // undefined인 경우를 놓친다. Supabase 공식 문서 패턴(!identities?.length)을 쓴다.
+    if (data.user && !data.user.identities?.length) {
+      setError("이미 가입된 이메일이에요. 로그인해주세요.");
       return;
     }
     setMode("sent");
