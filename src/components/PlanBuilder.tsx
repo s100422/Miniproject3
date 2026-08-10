@@ -126,14 +126,18 @@ export default function PlanBuilder({ initialValues }: { initialValues?: Initial
   const investValid = Number.isFinite(investNum) && investNum > 0;
   const targetValid = Number.isFinite(targetNum) && targetNum > 0;
 
+  // AI가 실제로 어떤 종목을 고를지는 생성 전엔 알 수 없어서, 이 값은 평균치 기반 추정이라
+  // 실제 결과가 이보다 다소 적거나 많을 수 있다
+  const ESTIMATE_NOTE = " (평균치 기반 추정이라 실제 결과와 다를 수 있어요)";
+
   const targetHint =
     maxPerDollar && investValid
-      ? `월 ${usd(investNum)} 투자 기준, 30년 모으면 월 ${usd(investNum * maxPerDollar)} 정도까지가 현실적이에요.`
+      ? `월 ${usd(investNum)} 투자 기준, 30년 모으면 월 ${usd(investNum * maxPerDollar)} 정도까지가 현실적이에요.${ESTIMATE_NOTE}`
       : "해외여행 비용이면 월 $1,000~2,000 정도를 많이 잡아요.";
 
   const investHint =
     maxPerDollar && targetValid
-      ? `월 ${usd(targetNum)}를 받으려면 월 ${usd(Math.ceil(targetNum / maxPerDollar))} 이상은 투자해야 해요.`
+      ? `월 ${usd(targetNum)}를 받으려면 월 ${usd(Math.ceil(targetNum / maxPerDollar))} 이상은 투자해야 해요.${ESTIMATE_NOTE}`
       : "매달 꾸준히 넣을 수 있는 금액이 좋아요. 월 $100~500으로 많이 시작해요.";
 
   async function handleSubmit(excludeList: string[] = excluded) {
