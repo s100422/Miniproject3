@@ -10,7 +10,7 @@ import { realisticBestAnnualDividend } from "@/lib/dividendCalc";
 export async function GET() {
   const { data: stocks, error } = await supabase
     .from("dividend_stocks")
-    .select("ticker, payout_months, dividend_yield, dividend_growth_5y");
+    .select("ticker, sector, payout_months, dividend_yield, dividend_growth_5y");
 
   if (error || !stocks || stocks.length === 0) {
     return NextResponse.json({ error: "종목 정보를 불러오지 못했어요." }, { status: 503 });
@@ -19,6 +19,7 @@ export async function GET() {
   const annualPerDollar = realisticBestAnnualDividend(
     stocks.map((s) => ({
       ticker: s.ticker,
+      sector: s.sector,
       payout_months: s.payout_months,
       dividend_yield: s.dividend_yield,
       dividend_growth_5y: s.dividend_growth_5y ?? 0,

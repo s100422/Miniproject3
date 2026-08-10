@@ -61,6 +61,7 @@ export async function POST(request: Request) {
   const bestAnnual = realisticBestAnnualDividend(
     (stocks as StockRow[]).map((s) => ({
       ticker: s.ticker,
+      sector: s.sector,
       payout_months: s.payout_months,
       dividend_yield: s.dividend_yield,
       dividend_growth_5y: s.dividend_growth_5y ?? 0,

@@ -68,9 +68,16 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
-export type PortfolioStock = StockRates & { ticker: string; payout_months: number[] };
+export type PortfolioStock = StockRates & {
+  ticker: string;
+  payout_months: number[];
+  sector: string;
+};
 
 const PORTFOLIO_SIZE = 8;
+// AI 프롬프트 규칙(같은 섹터 weight_pct 합 40% 이하)과 맞춘 상한. 이 상한 계산이
+// 섹터 제약을 무시하면 AI가 실제로 못 만들 조합을 "현실적"이라고 안내하게 된다.
+const MAX_PER_SECTOR = Math.floor(PORTFOLIO_SIZE * 0.4);
 
 /** 점수 상위 종목을 고르되, 빠진 달이 있으면 그 달을 주는 종목을 채워 12개월을 커버한다 */
 function pickPortfolio(
@@ -78,14 +85,32 @@ function pickPortfolio(
   score: (s: PortfolioStock) => number
 ): PortfolioStock[] {
   const sorted = [...stocks].sort((a, b) => score(b) - score(a));
-  const picked = sorted.slice(0, PORTFOLIO_SIZE);
-  const covered = new Set(picked.flatMap((s) => s.payout_months));
+  const sectorCount = new Map<string, number>();
+  const picked: PortfolioStock[] = [];
 
+  for (const s of sorted) {
+    if (picked.length >= PORTFOLIO_SIZE) break;
+    const count = sectorCount.get(s.sector) ?? 0;
+    if (count >= MAX_PER_SECTOR) continue;
+    picked.push(s);
+    sectorCount.set(s.sector, count + 1);
+  }
+
+  const covered = new Set(picked.flatMap((s) => s.payout_months));
   for (let month = 1; month <= 12; month++) {
     if (covered.has(month)) continue;
-    const fill = sorted.find((s) => s.payout_months.includes(month) && !picked.includes(s));
+    // 섹터 상한을 지키는 종목을 우선 채우고, 그래도 커버가 안 되면 12개월 커버리지
+    // 규칙(항상 우선)을 위해 상한을 넘겨서라도 채운다
+    const fill =
+      sorted.find(
+        (s) =>
+          s.payout_months.includes(month) &&
+          !picked.includes(s) &&
+          (sectorCount.get(s.sector) ?? 0) < MAX_PER_SECTOR
+      ) ?? sorted.find((s) => s.payout_months.includes(month) && !picked.includes(s));
     if (fill) {
       picked.push(fill);
+      sectorCount.set(fill.sector, (sectorCount.get(fill.sector) ?? 0) + 1);
       fill.payout_months.forEach((m) => covered.add(m));
     }
   }
