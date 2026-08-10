@@ -155,6 +155,32 @@ export function realisticBestAnnualDividend(
 }
 
 /**
+ * "월 X 투자하면 30년 후 현실적으로 Y까지"라고 안내할 때 쓰는 값. realisticBestAnnualDividend
+ * (섹터당 1종목으로 이론상 가장 좋은 조합만 고른 상한)는 AI가 실제로 그 안에서 최선의 종목을
+ * 고른다고 가정하는데, 실측 결과는 AI의 종목 선택 편차 때문에 그 상한의 30~60%에 그쳤다.
+ * 대신 전체 종목 풀의 단순 평균 수익률/성장률로 계산하면 cherry-pick이 없어 과대 약속하지
+ * 않는다(실측 3건 모두 이 값 이상을 달성했다).
+ */
+export function typicalAnnualDividend(
+  stocks: StockRates[],
+  monthlyInvestment: number,
+  periodMonths = 360
+): number {
+  if (stocks.length === 0) return 0;
+  const avg: StockRates = {
+    dividend_yield: stocks.reduce((sum, s) => sum + s.dividend_yield, 0) / stocks.length,
+    dividend_growth_5y: stocks.reduce((sum, s) => sum + s.dividend_growth_5y, 0) / stocks.length,
+  };
+  const rows = projectDividendGrowth(
+    [{ ticker: "avg", weight_pct: 100 }],
+    { avg },
+    monthlyInvestment,
+    periodMonths
+  );
+  return rows[rows.length - 1].growthReinvest;
+}
+
+/**
  * 목표 배당금(연 환산)에 도달하는 시점을 추정한다. 저장된 데이터가 마일스톤(1·5·10…년차)뿐이라
  * 그 사이 값은 보간해야 한다. 도달하지 못하면 null.
  */
