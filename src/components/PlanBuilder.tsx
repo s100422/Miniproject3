@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { getAnonymousId } from "@/lib/anonymousId";
 import type { YearlyProjection } from "@/lib/dividendCalc";
 import DividendChart from "./DividendChart";
+import { Spiral } from "./ui/spiral";
 
 type Allocation = {
   ticker: string;
@@ -288,7 +289,14 @@ export default function PlanBuilder({ initialValues }: { initialValues?: Initial
           onClick={() => handleSubmit()}
           className="w-full rounded-xl bg-primary py-4 text-body-lg font-body-lg font-bold text-on-primary transition-opacity hover:opacity-90 disabled:bg-surface-container-high disabled:text-outline"
         >
-          {loading ? "생성 중..." : "플랜 만들기"}
+          {loading ? (
+            <span className="inline-flex items-center justify-center gap-2">
+              <Spiral className="size-5" />
+              생성 중...
+            </span>
+          ) : (
+            "플랜 만들기"
+          )}
         </button>
       </section>
 
@@ -322,7 +330,12 @@ export default function PlanBuilder({ initialValues }: { initialValues?: Initial
 
       {candidates && (
         <section className="mx-auto mt-stack-lg flex max-w-4xl flex-col gap-stack-lg">
-          {candidates.map((c, i) => (
+          {candidates.map((c, i) => {
+            const lastRow = c.chart_data[c.chart_data.length - 1];
+            const goalRatio = lastRow ? lastRow.growthReinvest / 12 / Number(target) : 0;
+            const isClose = goalRatio >= 0.8;
+
+            return (
             <article
               key={i}
               className={`relative flex flex-col gap-8 overflow-hidden rounded-2xl bg-surface-container-lowest p-8 shadow-[0_4px_12px_rgba(0,8,31,0.05)] md:flex-row${
@@ -332,7 +345,7 @@ export default function PlanBuilder({ initialValues }: { initialValues?: Initial
               {!c.goal_achieved && (
                 <div className="absolute top-0 right-0 flex items-center gap-1 rounded-bl-xl bg-error-container px-4 py-2 text-label-md font-label-md font-bold text-on-error-container">
                   <span className="material-symbols-outlined text-sm">warning</span>
-                  목표에 근접한 대안입니다
+                  {isClose ? "목표에 근접한 대안입니다" : "목표 달성이 어려운 대안입니다"}
                 </div>
               )}
 
@@ -434,7 +447,8 @@ export default function PlanBuilder({ initialValues }: { initialValues?: Initial
                 </div>
               </div>
             </article>
-          ))}
+            );
+          })}
         </section>
       )}
     </div>
