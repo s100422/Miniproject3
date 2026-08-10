@@ -75,9 +75,10 @@ export type PortfolioStock = StockRates & {
 };
 
 const PORTFOLIO_SIZE = 8;
-// AI 프롬프트 규칙(같은 섹터 weight_pct 합 40% 이하)과 맞춘 상한. 이 상한 계산이
-// 섹터 제약을 무시하면 AI가 실제로 못 만들 조합을 "현실적"이라고 안내하게 된다.
-const MAX_PER_SECTOR = Math.floor(PORTFOLIO_SIZE * 0.4);
+// 규칙상 허용치는 섹터당 40%(=8종목 중 3개)지만, 실제 AI는 "섹터를 몰아넣지 마라"를
+// 훨씬 보수적으로 해석해 섹터당 1종목 수준으로 넓게 분산한다. 상한 계산이 규칙상
+// 허용치까지 몰아 담는 걸 "현실적"이라고 하면 실제 생성 결과보다 크게 부풀려진다.
+const MAX_PER_SECTOR = 1;
 
 /** 점수 상위 종목을 고르되, 빠진 달이 있으면 그 달을 주는 종목을 채워 12개월을 커버한다 */
 function pickPortfolio(
