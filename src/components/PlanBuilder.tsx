@@ -290,10 +290,7 @@ export default function PlanBuilder({ initialValues }: { initialValues?: Initial
           className="w-full rounded-xl bg-primary py-4 text-body-lg font-body-lg font-bold text-on-primary transition-opacity hover:opacity-90 disabled:bg-surface-container-high disabled:text-outline"
         >
           {loading ? (
-            <span className="inline-flex items-center justify-center gap-2">
-              <Spiral className="size-5" />
-              생성 중...
-            </span>
+            <Spiral className="size-5" />
           ) : (
             "플랜 만들기"
           )}
