@@ -30,7 +30,7 @@ type Plan = {
   goal_achieved: boolean;
 };
 
-const TABS = ["플랜 상세", "배당 시뮬레이터", "배당지급일"] as const;
+const TABS = ["플랜 상세", "배당 시뮬레이터", "배당지급월"] as const;
 type Tab = (typeof TABS)[number];
 
 const CARD =
@@ -276,7 +276,7 @@ export default function PlanDetailPage() {
         </section>
       )}
 
-      {tab === "배당지급일" && (
+      {tab === "배당지급월" && (
         <section className={CARD}>
           <div className="overflow-x-auto">
             <DividendCalendar
