@@ -17,6 +17,8 @@ export default function PlansPage() {
   const [plans, setPlans] = useState<PlanSummary[] | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [nameInput, setNameInput] = useState("");
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     load();
@@ -49,8 +51,13 @@ export default function PlansPage() {
   }
 
   async function deletePlan(id: string) {
-    if (!confirm("이 플랜을 삭제할까요?")) return;
-    await supabase.from("plans").delete().eq("id", id);
+    setDeleteError(null);
+    const { error } = await supabase.from("plans").delete().eq("id", id);
+    if (error) {
+      setDeleteError("삭제에 실패했어요. 다시 시도해주세요.");
+      return;
+    }
+    setConfirmingDeleteId(null);
     setPlans((prev) => prev?.filter((p) => p.id !== id) ?? null);
   }
 
@@ -68,6 +75,13 @@ export default function PlansPage() {
           새 플랜 만들기
         </Link>
       </div>
+
+      {deleteError && (
+        <p className="mb-stack-md flex items-center gap-stack-sm text-label-md font-label-md text-error">
+          <span className="material-symbols-outlined text-base">error</span>
+          {deleteError}
+        </p>
+      )}
 
       {plans === null && (
         <p className="text-body-md font-body-md text-on-surface-variant">불러오는 중...</p>
@@ -121,6 +135,26 @@ export default function PlansPage() {
                       저장
                     </button>
                   </div>
+                ) : confirmingDeleteId === p.id ? (
+                  <div className="flex flex-1 items-center justify-between gap-2">
+                    <span className="text-label-md font-label-md text-error">삭제할까요?</span>
+                    <div className="flex shrink-0 gap-stack-md">
+                      <button
+                        type="button"
+                        onClick={() => deletePlan(p.id)}
+                        className="text-label-md font-label-md font-bold text-error hover:underline"
+                      >
+                        삭제
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmingDeleteId(null)}
+                        className="text-label-md font-label-md text-on-surface-variant hover:underline"
+                      >
+                        취소
+                      </button>
+                    </div>
+                  </div>
                 ) : (
                   <>
                     <Link href={`/plans/${p.id}`} className="flex items-center gap-2 min-w-0">
@@ -145,7 +179,7 @@ export default function PlansPage() {
                       <button
                         type="button"
                         aria-label="삭제"
-                        onClick={() => deletePlan(p.id)}
+                        onClick={() => setConfirmingDeleteId(p.id)}
                         className="hover:text-error transition-colors"
                       >
                         <span className="material-symbols-outlined">delete</span>

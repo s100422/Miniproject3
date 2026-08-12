@@ -41,6 +41,9 @@ const STROKE_WIDTH = 28;
 const RADIUS = CENTER - STROKE_WIDTH / 2;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
+// 소수점 셋째 자리부터는 버린다(반올림 아님) — 46.329...%처럼 실제 계산값보다 커 보이지 않게.
+const truncate2 = (n: number) => Math.floor(n * 100) / 100;
+
 export default function AllocationPie({
   allocations,
 }: {
@@ -70,7 +73,7 @@ export default function AllocationPie({
         viewBox={`0 0 ${SIZE} ${SIZE}`}
         className="-rotate-90 overflow-visible"
         role="img"
-        aria-label={`종목별 비중: ${allocations.map((a) => `${a.ticker} ${a.weight_pct}%`).join(", ")}`}
+        aria-label={`종목별 비중: ${allocations.map((a) => `${a.ticker} ${truncate2(a.weight_pct)}%`).join(", ")}`}
       >
         <circle
           cx={CENTER}
@@ -117,7 +120,7 @@ export default function AllocationPie({
             >
               <p className="text-headline-md font-headline-md text-primary">{active.ticker}</p>
               <p className="text-label-md font-label-md text-on-surface-variant">
-                {active.weight_pct}%
+                {truncate2(active.weight_pct)}%
               </p>
             </motion.div>
           ) : (

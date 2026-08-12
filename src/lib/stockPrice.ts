@@ -1,5 +1,5 @@
 // Yahoo는 클래스주를 점이 아닌 하이픈으로 쓴다(BF.B -> BF-B)
-const toQuoteSymbol = (ticker: string) => ticker.replace(".", "-");
+export const toQuoteSymbol = (ticker: string) => ticker.replace(".", "-");
 
 const QUOTE_URL = (ticker: string) =>
   `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(

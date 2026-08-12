@@ -9,6 +9,7 @@ import AuthWidget from "@/components/AuthWidget";
 const NAV = [
   { href: "/", label: "Home", icon: "home" },
   { href: "/plans", label: "My Plan", icon: "flight_takeoff" },
+  { href: "/portfolio", label: "My Portfolio", icon: "account_balance_wallet" },
   { href: "/stocks", label: "Dividend Kings", icon: "military_tech" },
 ];
 

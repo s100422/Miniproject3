@@ -143,6 +143,7 @@ function StockCard({ s, featured = false }: { s: Stock; featured?: boolean }) {
 
 export default function StocksPage() {
   const [stocks, setStocks] = useState<Stock[] | null>(null);
+  const [liveYields, setLiveYields] = useState<Record<string, number>>({});
   const [selectedSector, setSelectedSector] = useState<string | null>(null);
 
   useEffect(() => {
@@ -156,14 +157,36 @@ export default function StocksPage() {
     load();
   }, []);
 
-  const sectorCounts = useMemo(() => {
-    if (!stocks) return [];
-    const counts = new Map<string, number>();
-    for (const s of stocks) counts.set(s.sector, (counts.get(s.sector) ?? 0) + 1);
-    return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
+  // 손입력 DB 값 대신 야후 배당 이력 기반 실시간 수익률로 화면을 채운다(계산 못 한 종목은 DB 값 그대로).
+  useEffect(() => {
+    if (!stocks || stocks.length === 0) return;
+    const tickers = stocks.map((s) => s.ticker).join(",");
+    fetch(`/api/stocks/rates?tickers=${encodeURIComponent(tickers)}`)
+      .then((r) => r.json())
+      .then((d) => {
+        const rates: Record<string, { dividend_yield: number | null }> = d.rates ?? {};
+        const yields: Record<string, number> = {};
+        for (const [ticker, rate] of Object.entries(rates)) {
+          if (rate.dividend_yield != null) yields[ticker] = rate.dividend_yield;
+        }
+        setLiveYields(yields);
+      })
+      .catch(() => {});
   }, [stocks]);
 
-  const filteredStocks = stocks?.filter(
+  const displayStocks = useMemo(
+    () => stocks?.map((s) => ({ ...s, dividend_yield: liveYields[s.ticker] ?? s.dividend_yield })),
+    [stocks, liveYields]
+  );
+
+  const sectorCounts = useMemo(() => {
+    if (!displayStocks) return [];
+    const counts = new Map<string, number>();
+    for (const s of displayStocks) counts.set(s.sector, (counts.get(s.sector) ?? 0) + 1);
+    return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
+  }, [displayStocks]);
+
+  const filteredStocks = displayStocks?.filter(
     (s) => !selectedSector || s.sector === selectedSector
   );
   // dividend_stocks 쿼리가 이미 consecutive_years desc로 정렬돼 있어서 첫 번째가 최고 연속성장 종목이다.

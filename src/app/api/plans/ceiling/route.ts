@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { typicalAnnualDividend } from "@/lib/dividendCalc";
+import { fetchDividendRates } from "@/lib/dividendRates";
 
 /**
  * 입력 화면에 "이 정도까지가 현실적"이라고 안내하기 위한 값.
@@ -10,16 +11,17 @@ import { typicalAnnualDividend } from "@/lib/dividendCalc";
 export async function GET() {
   const { data: stocks, error } = await supabase
     .from("dividend_stocks")
-    .select("dividend_yield, dividend_growth_5y");
+    .select("ticker, dividend_yield, dividend_growth_5y");
 
   if (error || !stocks || stocks.length === 0) {
     return NextResponse.json({ error: "종목 정보를 불러오지 못했어요." }, { status: 503 });
   }
 
+  const liveRates = await fetchDividendRates(stocks.map((s) => s.ticker));
   const annualPerDollar = typicalAnnualDividend(
     stocks.map((s) => ({
-      dividend_yield: s.dividend_yield,
-      dividend_growth_5y: s.dividend_growth_5y ?? 0,
+      dividend_yield: liveRates[s.ticker]?.dividend_yield ?? s.dividend_yield,
+      dividend_growth_5y: liveRates[s.ticker]?.dividend_growth_5y ?? s.dividend_growth_5y ?? 0,
     })),
     1
   );
