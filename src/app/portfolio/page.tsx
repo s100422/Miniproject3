@@ -1,20 +1,31 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { aggregateHoldings, type HoldingTransaction } from "@/lib/holdings";
 import { formatUsd } from "@/components/DividendChart";
 import AllocationPie from "@/components/AllocationPie";
-import DividendCalendar from "@/components/DividendCalendar";
+import HoldingsDividendCalendar from "@/components/HoldingsDividendCalendar";
+import MonthlyDividendChart from "@/components/MonthlyDividendChart";
+import PortfolioDividendSimulator from "@/components/PortfolioDividendSimulator";
 import { Spiral } from "@/components/ui/spiral";
+import { Select } from "@/components/ui/select";
 
 type StoredTransaction = HoldingTransaction & { id: string };
+type StoredReceipt = {
+  id: string;
+  ticker: string;
+  name: string;
+  amount: number;
+  received_date: string;
+};
 type CatalogStock = {
   ticker: string;
   name: string;
   dividend_yield: number;
+  dividend_growth_5y: number;
   payout_months: number[];
 };
 
@@ -79,13 +90,15 @@ function clampWhenComplete(
 function DateField({
   id,
   onChange,
+  defaultValue,
 }: {
   id: string;
   onChange: (isoDate: string) => void;
+  defaultValue?: string;
 }) {
-  const [year, setYear] = useState("");
-  const [month, setMonth] = useState("");
-  const [day, setDay] = useState("");
+  const [year, setYear] = useState(defaultValue?.slice(0, 4) ?? "");
+  const [month, setMonth] = useState(defaultValue?.slice(5, 7) ?? "");
+  const [day, setDay] = useState(defaultValue?.slice(8, 10) ?? "");
   const yearRef = useRef<HTMLInputElement>(null);
   const monthRef = useRef<HTMLInputElement>(null);
   const dayRef = useRef<HTMLInputElement>(null);
@@ -154,91 +167,101 @@ function DateField({
   );
 }
 
-const TABS = ["보유 현황", "배당지급월", "거래 내역"] as const;
+const TABS = ["보유 현황", "배당지급월", "거래 내역", "배당 기록", "배당 시뮬레이션"] as const;
 type PortfolioTab = (typeof TABS)[number];
 
-type SelectOption = { value: string; label: string };
+type DatePreset = "all" | "today" | "1w" | "3m" | "6m" | "custom";
 
-/** 네이티브 select는 팝업 모양을 CSS로 못 바꿔서, 트리거+목록을 직접 그리는 커스텀 드롭다운. */
-function Select({
-  id,
-  value,
-  onChange,
-  options,
-  placeholder = "선택",
+const DATE_PRESETS: { value: DatePreset; label: string }[] = [
+  { value: "all", label: "전체" },
+  { value: "today", label: "오늘" },
+  { value: "1w", label: "1주" },
+  { value: "3m", label: "3개월" },
+  { value: "6m", label: "6개월" },
+  { value: "custom", label: "기간 직접 입력" },
+];
+
+function isoDate(d: Date) {
+  return d.toISOString().slice(0, 10);
+}
+
+/** 프리셋을 [시작일, 종료일] ISO 문자열 범위로 바꾼다. "전체"는 둘 다 null(제한 없음). */
+function dateRangeFor(
+  preset: DatePreset,
+  customStart: string,
+  customEnd: string,
+): { start: string | null; end: string | null } {
+  if (preset === "all") return { start: null, end: null };
+  if (preset === "custom") return { start: customStart || null, end: customEnd || null };
+  const today = new Date();
+  const todayStr = isoDate(today);
+  if (preset === "today") return { start: todayStr, end: todayStr };
+  const daysAgo = preset === "1w" ? 7 : preset === "3m" ? 90 : 180;
+  const past = new Date(today);
+  past.setDate(past.getDate() - daysAgo);
+  return { start: isoDate(past), end: todayStr };
+}
+
+/** 검색창(종목명/티커)·날짜 프리셋 필터 바. 거래 내역·배당 기록 탭이 공유한다. */
+function RecordFilterBar({
+  search,
+  onSearchChange,
+  datePreset,
+  onDatePresetChange,
+  customStart,
+  onCustomStartChange,
+  customEnd,
+  onCustomEndChange,
+  extraFilters,
 }: {
-  id: string;
-  value: string;
-  onChange: (value: string) => void;
-  options: SelectOption[];
-  placeholder?: string;
+  search: string;
+  onSearchChange: (v: string) => void;
+  datePreset: DatePreset;
+  onDatePresetChange: (v: DatePreset) => void;
+  customStart: string;
+  onCustomStartChange: (v: string) => void;
+  customEnd: string;
+  onCustomEndChange: (v: string) => void;
+  extraFilters?: ReactNode;
 }) {
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
-  const selected = options.find((o) => o.value === value);
-
-  useEffect(() => {
-    if (!open) return;
-    function handlePointerDown(e: PointerEvent) {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node))
-        setOpen(false);
-    }
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
-    }
-    document.addEventListener("pointerdown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [open]);
-
   return (
-    <div className="relative" ref={rootRef}>
-      <button
-        type="button"
-        id={id}
-        onClick={() => setOpen((v) => !v)}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        className="flex w-full items-center justify-between gap-2 rounded-full border border-outline-variant bg-surface px-4 py-2.5 text-body-md font-body-md transition-shadow focus:border-primary focus:ring-1 focus:ring-secondary focus:outline-none"
-      >
-        <span className={selected ? "" : "text-on-surface-variant"}>
-          {selected?.label ?? placeholder}
-        </span>
-        <span className="material-symbols-outlined text-[20px] text-on-surface-variant">
-          expand_more
-        </span>
-      </button>
-
-      {open && (
-        <ul
-          role="listbox"
-          className="absolute z-20 mt-2 max-h-64 w-full min-w-max overflow-y-auto rounded-2xl border border-outline-variant bg-surface-container-lowest p-1 shadow-[0_4px_12px_rgba(0,8,31,0.15)]"
-        >
-          {options.map((o) => (
-            <li key={o.value} role="option" aria-selected={o.value === value}>
-              <button
-                type="button"
-                onClick={() => {
-                  onChange(o.value);
-                  setOpen(false);
-                }}
-                className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-body-md font-body-md transition-colors hover:bg-surface-container-high"
-              >
-                <span className="material-symbols-outlined w-4 shrink-0 text-[16px] text-primary">
-                  {o.value === value ? "check" : ""}
-                </span>
-                <span
-                  className={o.value === value ? "font-bold text-primary" : ""}
-                >
-                  {o.label}
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
+    <div className="mb-stack-lg flex flex-col gap-stack-md">
+      <div className="flex flex-wrap items-center gap-stack-md">
+        <div className="relative w-full max-w-xs">
+          <span className="material-symbols-outlined pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant">
+            search
+          </span>
+          <input
+            className={`${inputClass} pl-9`}
+            value={search}
+            onChange={(e) => onSearchChange(e.target.value)}
+            placeholder="종목명/티커 검색"
+          />
+        </div>
+        {extraFilters}
+      </div>
+      <div className="flex flex-wrap gap-stack-sm">
+        {DATE_PRESETS.map((p) => (
+          <button
+            key={p.value}
+            type="button"
+            onClick={() => onDatePresetChange(p.value)}
+            className={`whitespace-nowrap rounded-full px-4 py-1.5 text-label-md font-label-md transition-colors ${
+              datePreset === p.value
+                ? "bg-primary text-on-primary"
+                : "bg-surface-container text-on-surface hover:bg-surface-container-high"
+            }`}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+      {datePreset === "custom" && (
+        <div className="flex flex-wrap items-center gap-stack-md">
+          <DateField id="filter-start" onChange={onCustomStartChange} defaultValue={customStart} />
+          <span className="text-on-surface-variant">~</span>
+          <DateField id="filter-end" onChange={onCustomEndChange} defaultValue={customEnd} />
+        </div>
       )}
     </div>
   );
@@ -258,6 +281,8 @@ export default function PortfolioPage() {
     null,
   );
   const [tab, setTab] = useState<PortfolioTab>("보유 현황");
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [editingTransactionId, setEditingTransactionId] = useState<string | null>(null);
 
   const [ticker, setTicker] = useState("");
   const [name, setName] = useState("");
@@ -267,6 +292,28 @@ export default function PortfolioPage() {
   const [tradeDate, setTradeDate] = useState("");
   const [dateFieldKey, setDateFieldKey] = useState(0);
   const [broker, setBroker] = useState("");
+
+  const [receipts, setReceipts] = useState<StoredReceipt[] | null>(null);
+  const [showReceiptForm, setShowReceiptForm] = useState(false);
+  const [editingReceiptId, setEditingReceiptId] = useState<string | null>(null);
+  const [receiptTicker, setReceiptTicker] = useState("");
+  const [receiptAmount, setReceiptAmount] = useState("");
+  const [receiptDate, setReceiptDate] = useState("");
+  const [receiptDateFieldKey, setReceiptDateFieldKey] = useState(0);
+  const [receiptError, setReceiptError] = useState<string | null>(null);
+  const [savingReceipt, setSavingReceipt] = useState(false);
+
+  const [txnSearch, setTxnSearch] = useState("");
+  const [txnDatePreset, setTxnDatePreset] = useState<DatePreset>("all");
+  const [txnCustomStart, setTxnCustomStart] = useState("");
+  const [txnCustomEnd, setTxnCustomEnd] = useState("");
+  const [txnTypeFilter, setTxnTypeFilter] = useState<"all" | "buy" | "sell">("all");
+  const [txnBrokerFilter, setTxnBrokerFilter] = useState("");
+
+  const [receiptSearch, setReceiptSearch] = useState("");
+  const [receiptDatePreset, setReceiptDatePreset] = useState<DatePreset>("all");
+  const [receiptCustomStart, setReceiptCustomStart] = useState("");
+  const [receiptCustomEnd, setReceiptCustomEnd] = useState("");
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
@@ -286,19 +333,25 @@ export default function PortfolioPage() {
     setTransactions(data ?? []);
   }, [session]);
 
+  const loadReceipts = useCallback(async () => {
+    if (!session) return;
+    const { data } = await supabase
+      .from("dividend_receipts")
+      .select("*")
+      .eq("user_id", session.user.id)
+      .order("received_date", { ascending: false });
+    setReceipts(data ?? []);
+  }, [session]);
+
   useEffect(() => {
     if (!session) return;
     supabase
       .from("dividend_stocks")
-      .select("ticker, name, dividend_yield, payout_months")
+      .select("ticker, name, dividend_yield, dividend_growth_5y, payout_months")
       .then(({ data }) => setCatalog(data ?? []));
-    supabase
-      .from("holding_transactions")
-      .select("*")
-      .eq("user_id", session.user.id)
-      .order("trade_date", { ascending: false })
-      .then(({ data }) => setTransactions(data ?? []));
-  }, [session]);
+    loadTransactions();
+    loadReceipts();
+  }, [session, loadTransactions, loadReceipts]);
 
   // 손입력 DB 값 대신 야후 배당 이력 기반 실시간 수익률로 배당 캘린더를 계산한다.
   useEffect(() => {
@@ -322,6 +375,41 @@ export default function PortfolioPage() {
     () => (transactions ? aggregateHoldings(transactions) : []),
     [transactions],
   );
+
+  const txnBrokerOptions = useMemo(() => {
+    const set = new Set(
+      (transactions ?? []).map((t) => t.broker).filter((b): b is string => !!b),
+    );
+    return Array.from(set).sort();
+  }, [transactions]);
+
+  const filteredTransactions = useMemo(() => {
+    if (!transactions) return [];
+    const { start, end } = dateRangeFor(txnDatePreset, txnCustomStart, txnCustomEnd);
+    const q = txnSearch.trim().toLowerCase();
+    return transactions.filter((t) => {
+      if (q && !t.name.toLowerCase().includes(q) && !t.ticker.toLowerCase().includes(q))
+        return false;
+      if (start && t.trade_date < start) return false;
+      if (end && t.trade_date > end) return false;
+      if (txnTypeFilter !== "all" && t.type !== txnTypeFilter) return false;
+      if (txnBrokerFilter && t.broker !== txnBrokerFilter) return false;
+      return true;
+    });
+  }, [transactions, txnSearch, txnDatePreset, txnCustomStart, txnCustomEnd, txnTypeFilter, txnBrokerFilter]);
+
+  const filteredReceipts = useMemo(() => {
+    if (!receipts) return [];
+    const { start, end } = dateRangeFor(receiptDatePreset, receiptCustomStart, receiptCustomEnd);
+    const q = receiptSearch.trim().toLowerCase();
+    return receipts.filter((r) => {
+      if (q && !r.name.toLowerCase().includes(q) && !r.ticker.toLowerCase().includes(q))
+        return false;
+      if (start && r.received_date < start) return false;
+      if (end && r.received_date > end) return false;
+      return true;
+    });
+  }, [receipts, receiptSearch, receiptDatePreset, receiptCustomStart, receiptCustomEnd]);
 
   useEffect(() => {
     if (holdings.length === 0) return;
@@ -368,6 +456,9 @@ export default function PortfolioPage() {
     (sum, r) => sum + (r.marketValue ?? r.costBasis),
     0,
   );
+  const totalCostBasis = rows.reduce((sum, r) => sum + r.costBasis, 0);
+  const totalGain = totalMarketValue - totalCostBasis;
+  const totalGainPct = totalCostBasis > 0 ? (totalGain / totalCostBasis) * 100 : null;
 
   const allocationsForPie =
     totalMarketValue > 0
@@ -377,19 +468,11 @@ export default function PortfolioPage() {
         }))
       : [];
 
-  const allocationsForCalendar = rows
-    .map((r) => {
-      const catalogStock = catalogByTicker.get(r.ticker.toUpperCase());
-      if (!catalogStock || totalMarketValue === 0) return null;
-      return {
-        ticker: r.ticker,
-        name: r.name,
-        weight_pct: ((r.marketValue ?? r.costBasis) / totalMarketValue) * 100,
-        dividend_yield: catalogStock.dividend_yield,
-        payout_months: catalogStock.payout_months,
-      };
-    })
-    .filter((a): a is NonNullable<typeof a> => a !== null);
+  const holdingsForCalendar = rows.map((r) => ({
+    ticker: r.ticker,
+    name: r.name,
+    marketValue: r.marketValue ?? r.costBasis,
+  }));
 
   const allFilled = [ticker, name, quantity, price, tradeDate].every(
     (v) => v !== "",
@@ -404,27 +487,7 @@ export default function PortfolioPage() {
         ? "가격을 확인해주세요."
         : null;
 
-  async function handleAddTransaction() {
-    if (!session || inputError || !allFilled) return;
-    setSaving(true);
-    setError(null);
-    const { error: insertError } = await supabase
-      .from("holding_transactions")
-      .insert({
-        user_id: session.user.id,
-        ticker: ticker.toUpperCase(),
-        name,
-        type,
-        quantity: quantityNum,
-        price: priceNum,
-        trade_date: tradeDate,
-        broker: broker || null,
-      });
-    setSaving(false);
-    if (insertError) {
-      setError("추가에 실패했어요.");
-      return;
-    }
+  function closeTransactionForm() {
     setTicker("");
     setName("");
     setQuantity("");
@@ -432,13 +495,107 @@ export default function PortfolioPage() {
     setTradeDate("");
     setDateFieldKey((k) => k + 1);
     setBroker("");
+    setEditingTransactionId(null);
+    setShowAddForm(false);
+  }
+
+  function startEditTransaction(t: StoredTransaction) {
+    setEditingTransactionId(t.id);
+    setTicker(t.ticker);
+    setName(t.name);
+    setQuantity(String(t.quantity));
+    setPrice(String(t.price));
+    setType(t.type);
+    setTradeDate(t.trade_date);
+    setDateFieldKey((k) => k + 1);
+    setBroker(t.broker ?? "");
+    setShowAddForm(true);
+  }
+
+  async function handleSubmitTransaction() {
+    if (!session || inputError || !allFilled) return;
+    setSaving(true);
+    setError(null);
+    const payload = {
+      user_id: session.user.id,
+      ticker: ticker.toUpperCase(),
+      name,
+      type,
+      quantity: quantityNum,
+      price: priceNum,
+      trade_date: tradeDate,
+      broker: broker || null,
+    };
+    const { error: submitError } = editingTransactionId
+      ? await supabase.from("holding_transactions").update(payload).eq("id", editingTransactionId)
+      : await supabase.from("holding_transactions").insert(payload);
+    setSaving(false);
+    if (submitError) {
+      setError(editingTransactionId ? "수정에 실패했어요." : "추가에 실패했어요.");
+      return;
+    }
+    closeTransactionForm();
     loadTransactions();
   }
 
-  async function handleDelete(id: string) {
-    await supabase.from("holding_transactions").delete().eq("id", id);
+  async function handleDelete(
+    table: "holding_transactions" | "dividend_receipts",
+    id: string,
+  ) {
+    await supabase.from(table).delete().eq("id", id);
     setConfirmingDeleteId(null);
-    loadTransactions();
+    if (table === "holding_transactions") loadTransactions();
+    else loadReceipts();
+  }
+
+  const receiptAmountNum = Number(receiptAmount);
+  const receiptFilled = receiptTicker !== "" && receiptAmount !== "" && receiptDate !== "";
+  const receiptInputError = !receiptFilled
+    ? null
+    : !Number.isFinite(receiptAmountNum) || receiptAmountNum <= 0
+      ? "배당금액은 0보다 커야 해요."
+      : null;
+
+  function closeReceiptForm() {
+    setReceiptTicker("");
+    setReceiptAmount("");
+    setReceiptDate("");
+    setReceiptDateFieldKey((k) => k + 1);
+    setEditingReceiptId(null);
+    setShowReceiptForm(false);
+  }
+
+  function startEditReceipt(r: StoredReceipt) {
+    setEditingReceiptId(r.id);
+    setReceiptTicker(r.ticker);
+    setReceiptAmount(String(r.amount));
+    setReceiptDate(r.received_date);
+    setReceiptDateFieldKey((k) => k + 1);
+    setShowReceiptForm(true);
+  }
+
+  async function handleSubmitReceipt() {
+    if (!session || receiptInputError || !receiptFilled) return;
+    const holding = holdings.find((h) => h.ticker === receiptTicker);
+    setSavingReceipt(true);
+    setReceiptError(null);
+    const payload = {
+      user_id: session.user.id,
+      ticker: receiptTicker,
+      name: holding?.name ?? receiptTicker,
+      amount: receiptAmountNum,
+      received_date: receiptDate,
+    };
+    const { error: submitError } = editingReceiptId
+      ? await supabase.from("dividend_receipts").update(payload).eq("id", editingReceiptId)
+      : await supabase.from("dividend_receipts").insert(payload);
+    setSavingReceipt(false);
+    if (submitError) {
+      setReceiptError(editingReceiptId ? "수정에 실패했어요." : "추가에 실패했어요.");
+      return;
+    }
+    closeReceiptForm();
+    loadReceipts();
   }
 
   if (session === undefined) {
@@ -470,13 +627,23 @@ export default function PortfolioPage() {
 
   return (
     <main className="mx-auto w-full max-w-[1200px] px-container-margin py-section-gap pb-[100px] md:pb-section-gap">
-      <h2 className="mb-stack-lg text-headline-lg font-headline-lg text-primary">
-        내 포트폴리오
-      </h2>
+      <div className="mb-stack-lg flex items-center justify-between">
+        <h2 className="text-headline-lg font-headline-lg text-primary">
+          내 포트폴리오
+        </h2>
+        <button
+          type="button"
+          onClick={() => (showAddForm ? closeTransactionForm() : setShowAddForm(true))}
+          className="rounded-xl bg-primary px-6 py-3 text-body-md font-body-md font-bold text-on-primary transition-opacity hover:opacity-90"
+        >
+          {showAddForm ? "닫기" : "거래 추가하기"}
+        </button>
+      </div>
 
+      {showAddForm && (
       <section className="mb-section-gap rounded-2xl bg-surface-container-lowest p-8 shadow-[0_4px_12px_rgba(0,8,31,0.05)]">
         <h3 className="mb-stack-lg text-headline-md font-headline-md text-primary">
-          거래 추가하기
+          {editingTransactionId ? "거래 수정하기" : "거래 추가하기"}
         </h3>
         <div className="mb-stack-lg grid grid-cols-1 gap-stack-md sm:grid-cols-2 md:grid-cols-3">
           <div>
@@ -563,6 +730,7 @@ export default function PortfolioPage() {
               key={dateFieldKey}
               id="trade-date"
               onChange={setTradeDate}
+              defaultValue={tradeDate}
             />
           </div>
           <div>
@@ -598,12 +766,13 @@ export default function PortfolioPage() {
         <button
           type="button"
           disabled={!allFilled || !!inputError || saving}
-          onClick={handleAddTransaction}
+          onClick={handleSubmitTransaction}
           className="w-full rounded-xl bg-primary py-3 text-body-md font-body-md font-bold text-on-primary transition-opacity hover:opacity-90 disabled:bg-surface-container-high disabled:text-outline sm:w-auto sm:px-8"
         >
-          {saving ? <Spiral className="size-5" /> : "추가하기"}
+          {saving ? <Spiral className="size-5" /> : editingTransactionId ? "수정하기" : "추가하기"}
         </button>
       </section>
+      )}
 
       {transactions !== null && transactions.length === 0 && (
         <p className="mb-section-gap text-body-md font-body-md text-on-surface-variant">
@@ -631,7 +800,41 @@ export default function PortfolioPage() {
           </div>
 
           {tab === "보유 현황" && rows.length > 0 && (
-            <section className="mb-section-gap flex flex-col gap-stack-lg md:flex-row md:items-start">
+            <>
+              <div className="mb-stack-lg grid grid-cols-1 gap-stack-md sm:grid-cols-3">
+                <div className="rounded-2xl bg-surface-container-lowest p-6 shadow-[0_4px_12px_rgba(0,8,31,0.05)]">
+                  <p className="text-label-md font-label-md text-on-surface-variant">
+                    총 투자금액
+                  </p>
+                  <p className="text-headline-md font-headline-md text-primary">
+                    {formatUsd(totalCostBasis)}
+                  </p>
+                </div>
+                <div className="rounded-2xl bg-surface-container-lowest p-6 shadow-[0_4px_12px_rgba(0,8,31,0.05)]">
+                  <p className="text-label-md font-label-md text-on-surface-variant">
+                    총 평가금액
+                  </p>
+                  <p className="text-headline-md font-headline-md text-primary">
+                    {formatUsd(totalMarketValue)}
+                  </p>
+                </div>
+                <div className="rounded-2xl bg-surface-container-lowest p-6 shadow-[0_4px_12px_rgba(0,8,31,0.05)]">
+                  <p className="text-label-md font-label-md text-on-surface-variant">
+                    총 평가손익
+                  </p>
+                  <p
+                    className={`text-headline-md font-headline-md ${
+                      totalGain >= 0 ? "text-secondary" : "text-error"
+                    }`}
+                  >
+                    {totalGain >= 0 ? "+" : ""}
+                    {formatUsd(totalGain)}
+                    {totalGainPct != null && ` (${totalGainPct.toFixed(1)}%)`}
+                  </p>
+                </div>
+              </div>
+
+              <section className="mb-section-gap flex flex-col gap-stack-lg md:flex-row md:items-start">
               <div className="rounded-2xl bg-surface-container-lowest p-8 shadow-[0_4px_12px_rgba(0,8,31,0.05)]">
                 <h3 className="mb-stack-md text-headline-md font-headline-md text-primary">
                   비중
@@ -709,14 +912,16 @@ export default function PortfolioPage() {
                   </tbody>
                 </table>
               </div>
-            </section>
+              </section>
+            </>
           )}
 
-          {tab === "배당지급월" && allocationsForCalendar.length > 0 && (
+          {tab === "배당지급월" && holdingsForCalendar.length > 0 && (
             <section className="mb-section-gap rounded-2xl bg-surface-container-lowest p-8 shadow-[0_4px_12px_rgba(0,8,31,0.05)]">
-              <DividendCalendar
-                allocations={allocationsForCalendar}
-                monthlyInvestment={totalMarketValue}
+              <HoldingsDividendCalendar
+                holdings={holdingsForCalendar}
+                catalog={Object.fromEntries(catalogByTicker)}
+                receipts={receipts ?? []}
               />
             </section>
           )}
@@ -726,6 +931,50 @@ export default function PortfolioPage() {
               <h3 className="mb-stack-md text-headline-md font-headline-md text-primary">
                 거래 내역
               </h3>
+              <RecordFilterBar
+                search={txnSearch}
+                onSearchChange={setTxnSearch}
+                datePreset={txnDatePreset}
+                onDatePresetChange={setTxnDatePreset}
+                customStart={txnCustomStart}
+                onCustomStartChange={setTxnCustomStart}
+                customEnd={txnCustomEnd}
+                onCustomEndChange={setTxnCustomEnd}
+                extraFilters={
+                  <>
+                    <div className="w-40">
+                      <Select
+                        id="txn-type-filter"
+                        value={txnTypeFilter}
+                        onChange={(v) => setTxnTypeFilter(v as "all" | "buy" | "sell")}
+                        options={[
+                          { value: "all", label: "구분 전체" },
+                          { value: "buy", label: "매수" },
+                          { value: "sell", label: "매도" },
+                        ]}
+                      />
+                    </div>
+                    <div className="w-44">
+                      <Select
+                        id="txn-broker-filter"
+                        value={txnBrokerFilter}
+                        onChange={setTxnBrokerFilter}
+                        placeholder="증권사 전체"
+                        options={[
+                          { value: "", label: "증권사 전체" },
+                          ...txnBrokerOptions.map((b) => ({ value: b, label: b })),
+                        ]}
+                      />
+                    </div>
+                  </>
+                }
+              />
+              {filteredTransactions.length === 0 && (
+                <p className="text-body-md font-body-md text-on-surface-variant">
+                  조건에 맞는 거래가 없어요.
+                </p>
+              )}
+              {filteredTransactions.length > 0 && (
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[560px] border-collapse text-left text-body-md font-body-md">
                   <thead>
@@ -752,7 +1001,7 @@ export default function PortfolioPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {transactions.map((t) => (
+                    {filteredTransactions.map((t) => (
                       <tr key={t.id}>
                         <td className="border-b border-outline-variant px-3 py-2">
                           {t.trade_date}
@@ -783,7 +1032,7 @@ export default function PortfolioPage() {
                               </span>
                               <button
                                 type="button"
-                                onClick={() => handleDelete(t.id)}
+                                onClick={() => handleDelete("holding_transactions", t.id)}
                                 className="text-label-md font-label-md font-bold text-error hover:underline"
                               >
                                 삭제
@@ -797,17 +1046,30 @@ export default function PortfolioPage() {
                               </button>
                             </div>
                           ) : (
-                            <button
-                              type="button"
-                              onClick={() => setConfirmingDeleteId(t.id)}
-                              className="text-on-surface-variant transition-colors hover:text-error"
-                              aria-label="삭제"
-                              title="삭제"
-                            >
-                              <span className="material-symbols-outlined text-base">
-                                delete
-                              </span>
-                            </button>
+                            <div className="flex items-center justify-end gap-stack-md">
+                              <button
+                                type="button"
+                                onClick={() => startEditTransaction(t)}
+                                className="text-on-surface-variant transition-colors hover:text-primary"
+                                aria-label="수정"
+                                title="수정"
+                              >
+                                <span className="material-symbols-outlined text-base">
+                                  edit
+                                </span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setConfirmingDeleteId(t.id)}
+                                className="text-on-surface-variant transition-colors hover:text-error"
+                                aria-label="삭제"
+                                title="삭제"
+                              >
+                                <span className="material-symbols-outlined text-base">
+                                  delete
+                                </span>
+                              </button>
+                            </div>
                           )}
                         </td>
                       </tr>
@@ -815,6 +1077,233 @@ export default function PortfolioPage() {
                   </tbody>
                 </table>
               </div>
+              )}
+            </section>
+          )}
+
+          {tab === "배당 기록" && (
+            <section className="rounded-2xl bg-surface-container-lowest p-8 shadow-[0_4px_12px_rgba(0,8,31,0.05)]">
+              <h3 className="mb-stack-lg text-headline-md font-headline-md text-primary">
+                배당 기록
+              </h3>
+
+              {holdings.length === 0 && (
+                <p className="text-body-md font-body-md text-on-surface-variant">
+                  보유 종목이 있어야 배당을 기록할 수 있어요.
+                </p>
+              )}
+
+              {receipts !== null && receipts.length > 0 && (
+                <div className="mb-section-gap">
+                  <MonthlyDividendChart receipts={receipts} />
+                </div>
+              )}
+
+              {holdings.length > 0 && (
+                <RecordFilterBar
+                  search={receiptSearch}
+                  onSearchChange={setReceiptSearch}
+                  datePreset={receiptDatePreset}
+                  onDatePresetChange={setReceiptDatePreset}
+                  customStart={receiptCustomStart}
+                  onCustomStartChange={setReceiptCustomStart}
+                  customEnd={receiptCustomEnd}
+                  onCustomEndChange={setReceiptCustomEnd}
+                  extraFilters={
+                    <button
+                      type="button"
+                      onClick={() => (showReceiptForm ? closeReceiptForm() : setShowReceiptForm(true))}
+                      className="rounded-xl bg-primary px-6 py-3 text-body-md font-body-md font-bold text-on-primary transition-opacity hover:opacity-90"
+                    >
+                      {showReceiptForm ? "닫기" : "배당 기록 추가"}
+                    </button>
+                  }
+                />
+              )}
+
+              {showReceiptForm && (
+                <div className="mb-stack-lg grid grid-cols-1 gap-stack-md rounded-xl border border-outline-variant p-6 sm:grid-cols-3">
+                  <p className="col-span-full text-label-md font-bold text-on-surface">
+                    {editingReceiptId ? "배당 기록 수정" : "배당 기록 추가"}
+                  </p>
+                  <div>
+                    <label className={labelClass} htmlFor="receipt-ticker">
+                      종목
+                    </label>
+                    <Select
+                      id="receipt-ticker"
+                      value={receiptTicker}
+                      onChange={setReceiptTicker}
+                      placeholder="종목 선택"
+                      options={holdings.map((h) => ({
+                        value: h.ticker,
+                        label: `${h.name} (${h.ticker})`,
+                      }))}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass} htmlFor="receipt-amount">
+                      배당금액 ($)
+                    </label>
+                    <input
+                      id="receipt-amount"
+                      type="number"
+                      min="0"
+                      step="any"
+                      className={inputClass}
+                      value={receiptAmount}
+                      onChange={(e) => setReceiptAmount(e.target.value)}
+                      placeholder="12.34"
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass} htmlFor="receipt-date">
+                      배당 지급일
+                    </label>
+                    <DateField
+                      key={receiptDateFieldKey}
+                      id="receipt-date"
+                      onChange={setReceiptDate}
+                      defaultValue={receiptDate}
+                    />
+                  </div>
+
+                  {receiptInputError && (
+                    <p className="col-span-full flex items-center gap-stack-sm text-label-md font-label-md text-error">
+                      <span className="material-symbols-outlined text-base">error</span>
+                      {receiptInputError}
+                    </p>
+                  )}
+                  {receiptError && (
+                    <p className="col-span-full flex items-center gap-stack-sm text-label-md font-label-md text-error">
+                      <span className="material-symbols-outlined text-base">error</span>
+                      {receiptError}
+                    </p>
+                  )}
+
+                  <button
+                    type="button"
+                    disabled={!receiptFilled || !!receiptInputError || savingReceipt}
+                    onClick={handleSubmitReceipt}
+                    className="rounded-xl bg-primary py-3 text-body-md font-body-md font-bold text-on-primary transition-opacity hover:opacity-90 disabled:bg-surface-container-high disabled:text-outline sm:w-auto sm:px-8"
+                  >
+                    {savingReceipt ? <Spiral className="size-5" /> : editingReceiptId ? "수정하기" : "추가하기"}
+                  </button>
+                </div>
+              )}
+
+              {receipts !== null && receipts.length === 0 && (
+                <p className="text-body-md font-body-md text-on-surface-variant">
+                  아직 기록된 배당이 없어요.
+                </p>
+              )}
+
+              {receipts !== null && receipts.length > 0 && filteredReceipts.length === 0 && (
+                <p className="text-body-md font-body-md text-on-surface-variant">
+                  조건에 맞는 배당 기록이 없어요.
+                </p>
+              )}
+
+              {filteredReceipts.length > 0 && (
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[420px] border-collapse text-left text-body-md font-body-md">
+                    <thead>
+                      <tr className="text-label-md font-label-md text-on-surface-variant">
+                        <th className="border-b border-outline-variant px-3 py-2">
+                          날짜
+                        </th>
+                        <th className="border-b border-outline-variant px-3 py-2">
+                          종목
+                        </th>
+                        <th className="border-b border-outline-variant px-3 py-2 text-right">
+                          배당금액
+                        </th>
+                        <th className="border-b border-outline-variant px-3 py-2" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredReceipts.map((r) => (
+                        <tr key={r.id}>
+                          <td className="border-b border-outline-variant px-3 py-2">
+                            {r.received_date}
+                          </td>
+                          <td className="border-b border-outline-variant px-3 py-2">
+                            {r.name}{" "}
+                            <span className="text-on-surface-variant">
+                              ({r.ticker})
+                            </span>
+                          </td>
+                          <td className="border-b border-outline-variant px-3 py-2 text-right font-bold text-secondary">
+                            {formatUsd(r.amount)}
+                          </td>
+                          <td className="border-b border-outline-variant px-3 py-2 text-right">
+                            {confirmingDeleteId === r.id ? (
+                              <div className="flex items-center justify-end gap-stack-md whitespace-nowrap">
+                                <span className="text-label-md font-label-md text-error">
+                                  삭제할까요?
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDelete("dividend_receipts", r.id)}
+                                  className="text-label-md font-label-md font-bold text-error hover:underline"
+                                >
+                                  삭제
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setConfirmingDeleteId(null)}
+                                  className="text-label-md font-label-md text-on-surface-variant hover:underline"
+                                >
+                                  취소
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center justify-end gap-stack-md">
+                                <button
+                                  type="button"
+                                  onClick={() => startEditReceipt(r)}
+                                  className="text-on-surface-variant transition-colors hover:text-primary"
+                                  aria-label="수정"
+                                  title="수정"
+                                >
+                                  <span className="material-symbols-outlined text-base">
+                                    edit
+                                  </span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setConfirmingDeleteId(r.id)}
+                                  className="text-on-surface-variant transition-colors hover:text-error"
+                                  aria-label="삭제"
+                                  title="삭제"
+                                >
+                                  <span className="material-symbols-outlined text-base">
+                                    delete
+                                  </span>
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+          )}
+
+          {tab === "배당 시뮬레이션" && (
+            <section className="rounded-2xl bg-surface-container-lowest p-8 shadow-[0_4px_12px_rgba(0,8,31,0.05)]">
+              <h3 className="mb-stack-lg text-headline-md font-headline-md text-primary">
+                배당 시뮬레이션
+              </h3>
+              <PortfolioDividendSimulator
+                holdings={rows.map((r) => ({ ticker: r.ticker, marketValue: r.marketValue ?? r.costBasis }))}
+                allocations={allocationsForPie}
+                catalog={Object.fromEntries(catalogByTicker)}
+                receipts={receipts ?? []}
+              />
             </section>
           )}
         </>

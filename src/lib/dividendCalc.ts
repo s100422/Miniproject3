@@ -4,7 +4,7 @@ export type StockRates = { dividend_yield: number; dividend_growth_5y: number };
 const DEFAULT_INFLATION_RATE = 0.03;
 export const MILESTONE_YEARS = [1, 5, 10, 15, 20, 25, 30];
 
-function weightedRate(
+export function weightedRate(
   allocations: Allocation[],
   stocks: Record<string, StockRates>,
   field: keyof StockRates
