@@ -115,8 +115,43 @@
 - **캐시가 어디에도 없다.** `revalidate`·`cache:`·`unstable_cache`·인메모리 메모 전부 0건.
   `/stocks`와 `/portfolio`는 진입할 때마다 야후에 **86건을 동시 요청**한다. 레이트리밋도 없다.
 - **전 계층 fail-open.** 실패한 티커는 조용히 빠지고 요청 자체는 성공한다.
-- 재무제표(배당성향·부채·마진)는 `chart`에 **없다** — `quoteSummary`에 있고 쿠키/크럼
-  인증을 요구할 수 있다. 쓰기 전에 반드시 접근 가능 여부를 먼저 확인할 것.
+- 재무제표(배당성향·부채·마진)는 `chart`에 **없다** — `quoteSummary`에 있고 지금 코드의
+  헤더만으로는 **401이다.** 아래 절 참고.
+
+### quoteSummary — 아직 안 쓰지만 접근 가능 (2026-08-15 확인)
+
+`/v10/finance/quoteSummary/{sym}?modules=summaryDetail,financialData,defaultKeyStatistics`
+
+**쿠키와 크럼이 둘 다 있어야 한다.** 하나만으론 401 `Invalid Crumb`이고, `User-Agent`만
+붙이는 현재 방식(`stockPrice.ts`)도 401이다. query1/query2 차이 없음. 야후 로그인은 불필요.
+
+1. `https://fc.yahoo.com` 호출 → 404가 오지만 `Set-Cookie`로 `A1`/`A3`가 온다
+2. 그 쿠키로 `/v1/test/getcrumb` → 크럼 문자열
+3. 쿠키 + `&crumb=`을 붙여 호출. **쌍은 재사용 가능** (티커마다 재발급 불필요)
+
+`BF-B` 같은 클래스주도 200. 필드는 3종목(JNJ·O·MSFT) 전부 값이 채워져 나왔다:
+
+| 쓸 것 | 경로 |
+|---|---|
+| 배당성향 | `summaryDetail.payoutRatio` |
+| 마진 | `financialData.{gross,operating,profit,ebitda}Margins` |
+| 부채·현금 | `financialData.{totalDebt,totalCash,debtToEquity}` |
+| 현금흐름 | `financialData.{operatingCashflow,freeCashflow,ebitda}` |
+
+붙이기 전에 알아야 할 것:
+
+- **배당성향은 `summaryDetail`에만 있다.** `defaultKeyStatistics.payoutRatio`는 3종목 모두
+  빈 값이라, 여기서 찾으면 조용히 null이 된다.
+- **REIT 배당성향은 무의미하다.** `O`가 `2.36`(236%)으로 나오는 건 순이익 기준이라서다.
+  REIT는 FFO/AFFO 기준이어야 하고 `quoteSummary`엔 FFO가 없다. 섹터별로 숨기거나 기준을 바꿀 것.
+- **순부채 필드는 없다.** `totalDebt - totalCash`로 직접 계산.
+- **`freeCashflow` 값을 믿지 말 것.** MSFT가 `operatingCashflow` 183B인데 `freeCashflow`는
+  16.5B로 나온다(실제는 70B대). 분기/TTM 기준이 섞인 것으로 보인다. FCF가 필요하면
+  `cashflowStatementHistory`에서 영업현금흐름 − capex로 직접 계산하는 쪽이 안전하다.
+- **응답 봉투가 성공·실패에서 다르다.** 성공은 `quoteSummary.result[0]`, 401은
+  `finance.error`. 둘 다 확인하지 않으면 401이 fail-open으로 빈 값처럼 흘러간다.
+- 크럼은 1회 받아 재사용하면 되지만, **86종목 요청이 기존 `chart` 호출 위에 얹힌다.**
+  캐시도 레이트리밋도 없는 상태라 429 가능성이 크다 — 캐시를 먼저 넣을 것.
 
 ---
 
