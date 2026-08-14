@@ -154,7 +154,7 @@ export default function PortfolioDividendSimulator({
               width={60}
             />
             <Tooltip
-              formatter={(v: number) => formatUsd(v)}
+              formatter={(v) => formatUsd(Number(v))}
               labelFormatter={(y) => `${y}년 후`}
             />
             <Line
