@@ -22,9 +22,22 @@ Phase 3의 AI 서술 계층. 상한이 풀리면 그 둘부터 할 것.
 node_modules/.bin/jiti src/lib/dividendScore.check.ts
 ```
 
-`riskScreen.check.ts`(뉴스 파싱·출처 귀속)와 `portfolioDiagnosis.check.ts`(진단 지표·액션 규칙)는
-네트워크를 안 탄다.
+`jiti`는 Next가 이미 의존하는 패키지다(새로 깔지 말 것).
 
-`jiti`는 Next가 이미 의존하는 패키지다(새로 깔지 말 것). `fundamentals`·`dividendScore.backtest`는
-네트워크를 실제로 탄다. **점수 임계값을 손대면 `dividendScore.backtest.check.ts`를 반드시 돌릴 것** —
+**`tsc`가 안 보기 때문에 픽스처가 타입과 어긋나도 아무도 안 알려준다.** `gemini.check.ts`가
+실제로 그렇게 죽어 있었다(allocations에 `reason` 누락). 검사를 고쳤으면 반드시 돌려볼 것.
+
+| 검사 | 무엇을 보나 | 필요한 것 |
+|---|---|---|
+| `holdings` | 이동평균 원가, 전량 매도 | — |
+| `dividendCalc` | 배당 성장 투영, 포트폴리오 선택 | — |
+| `dividendScore` | 4축 점수, 배당함정 판정 | — |
+| `gemini` | 응답 검증 게이트(환각 티커·근거 없는 설명·지급월 공백) | — |
+| `riskScreen` | 뉴스 파싱, **건별 출처 귀속** | — |
+| `portfolioDiagnosis` | 3단계 노출도, 가중평균·HHI, 액션 규칙 | — |
+| `dividendStocksAnomalies` | 카탈로그 데이터 이상값 | `node --env-file=.env.local node_modules/jiti/lib/jiti-cli.mjs …` |
+| `fundamentals` | 야후 재무 응답 | 네트워크 |
+| `dividendScore.backtest` | **실제 삭감 사례 역검증** | 네트워크 |
+
+**점수 임계값을 손대면 `dividendScore.backtest.check.ts`를 반드시 돌릴 것** —
 실제 배당 삭감 사례로 판정식을 검증하는 유일한 장치다.

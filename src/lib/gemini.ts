@@ -145,8 +145,10 @@ export async function callGemini(
 
 // reason에 그 종목의 실제 dividend_yield 또는 consecutive_years 숫자가 인용됐는지 확인한다.
 // 인용된 숫자가 실제 데이터와 다르면(혹은 숫자가 아예 없으면) 근거 없이 지어낸 설명으로 본다.
-function citesRealData(reason: string, stock: DividendStock): boolean {
-  const numbers = reason.match(/\d+(\.\d+)?/g)?.map(Number) ?? [];
+function citesRealData(reason: string | undefined, stock: DividendStock): boolean {
+  // `reason`이 스키마상 필수여도 응답에 없을 수 있다. 여기서 예외를 던지면 이 함수가 막으려던
+  // 바로 그 불량 응답이 502(검증 실패)가 아니라 처리 안 된 500으로 나간다.
+  const numbers = typeof reason === "string" ? (reason.match(/\d+(\.\d+)?/g)?.map(Number) ?? []) : [];
   return numbers.some(
     (n) => n === stock.consecutive_years || Math.abs(n - stock.dividend_yield) < 0.15
   );
