@@ -37,10 +37,12 @@ const TIER: Record<Tier, { label: string; color: string; note: string }> = {
 
 const ORDER: Tier[] = ["risk", "warn", "ok", "unanalyzed"];
 
-const ACTION_LABEL: Record<Action["kind"], string> = {
-  reduce: "축소 검토",
-  expand: "확대 검토",
-  new: "신규 편입 검토",
+// 축소·확대는 위 노출도 범례와 **같은 색**을 쓴다. "빨간 칩이 붙은 종목"과 "위험/경고 조각"이
+// 눈으로 이어져야 해서다. 신규 편입은 보유 종목이 아니라 제3의 색을 준다.
+const ACTION: Record<Action["kind"], { label: string; color: string }> = {
+  reduce: { label: "축소 검토", color: "bg-error-container text-on-error-container" },
+  expand: { label: "확대 검토", color: "bg-secondary-container text-on-secondary-container" },
+  new: { label: "신규 편입 검토", color: "bg-tertiary-fixed text-on-tertiary-fixed" },
 };
 
 /** HHI는 숫자만 보면 못 읽는다. 미국 반독점 당국이 쓰는 통상 구간을 그대로 쓴다. */
@@ -160,8 +162,10 @@ export default function PortfolioDiagnosis({
                 key={a.kind}
                 className="rounded-xl bg-surface-container-low p-4 text-body-md font-body-md"
               >
-                <span className="mr-2 rounded-full bg-surface-container-high px-2.5 py-1 text-label-md font-label-md font-bold text-on-surface">
-                  {ACTION_LABEL[a.kind]}
+                <span
+                  className={`mr-2 rounded-full px-2.5 py-1 text-label-md font-label-md font-bold ${ACTION[a.kind].color}`}
+                >
+                  {ACTION[a.kind].label}
                 </span>
                 <strong className="text-primary">{a.name}</strong>{" "}
                 <span className="text-on-surface-variant">({a.ticker})</span>
