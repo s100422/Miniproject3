@@ -1,7 +1,7 @@
 "use client";
 
 import { formatUsd } from "./DividendChart";
-import { ScoreNarrative } from "./ScoreBadge";
+import { ScoreCriteria, ScoreNarrative } from "./ScoreBadge";
 import type { Action, Diagnosis, Tier } from "@/lib/portfolioDiagnosis";
 import type { TickerAnalysis } from "@/lib/tickerAnalysis";
 
@@ -120,9 +120,13 @@ export default function PortfolioDiagnosis({
           title="배당가중 안전성"
           value={weightedSafety != null ? `${weightedSafety}점` : "—"}
           note={
-            safetyCoverage >= 100
-              ? "보유 배당 전체를 반영한 값이에요."
-              : `내 배당의 ${safetyCoverage}%만 반영된 값이에요. 나머지는 미분석이에요.`
+            // 그냥 평균이 아니라 배당가중이라는 게 이 지표의 전부다. 단순평균은 배당을 거의 안
+            // 주는 종목과 내 배당의 절반을 대는 종목을 똑같이 세서, 실제 위험을 흐린다.
+            `종목별 안전성 점수를 배당 금액 비중으로 평균한 값이에요. 배당을 많이 주는 종목의 점수가 그만큼 크게 반영돼요. ${
+              safetyCoverage >= 100
+                ? "보유 배당 전체가 반영됐어요."
+                : `지금은 내 배당의 ${safetyCoverage}%만 반영됐고, 나머지는 미분석 종목이에요.`
+            }`
           }
         />
         <Metric
@@ -144,6 +148,8 @@ export default function PortfolioDiagnosis({
           }
         />
       </section>
+
+      <ScoreCriteria />
 
       {actions.length > 0 && (
         <section>

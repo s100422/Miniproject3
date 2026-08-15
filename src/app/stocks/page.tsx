@@ -2,7 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { AsOfNotice, FlagChips, NewsChips, ScoreBadge, ScoreNarrative } from "@/components/ScoreBadge";
+import {
+  AsOfNotice,
+  FlagChips,
+  NewsChips,
+  ScoreBadge,
+  ScoreCriteria,
+  ScoreNarrative,
+} from "@/components/ScoreBadge";
 import { fetchLatestAnalysis, type TickerAnalysis } from "@/lib/tickerAnalysis";
 
 type Stock = {
@@ -261,6 +268,11 @@ export default function StocksPage() {
           <span className="material-symbols-outlined mr-1 align-middle text-[16px]">sort</span>
           안전성 낮은 순
         </button>
+      </div>
+
+      {/* 카드마다 4축 점수를 찍으면서 기준을 안 보여주면 사용자가 그 숫자를 검증할 수 없다. */}
+      <div className="mb-stack-lg">
+        <ScoreCriteria />
       </div>
 
       <div className="flex overflow-x-auto gap-base py-2 mb-stack-lg border-b border-surface-variant">

@@ -1,6 +1,6 @@
 "use client";
 
-import { grade } from "@/lib/dividendScore";
+import { AXIS_WEIGHT, GRADE_CUTS, SAFETY_PARTS, TRAP_PENALTY, grade } from "@/lib/dividendScore";
 import {
   daysSince,
   FLAG_LABEL,
@@ -67,6 +67,95 @@ export function FlagChips({ analysis }: { analysis: TickerAnalysis | undefined }
         </span>
       ))}
     </span>
+  );
+}
+
+/**
+ * 점수 기준표. **점수를 보여주면서 매기는 방법을 안 보여주면 사용자는 그 숫자를 검증할 수 없다**
+ * — 근거를 항상 같이 노출한다는 원칙이 점수 자체에도 적용돼야 한다(로드맵 "지키기로 한 것").
+ *
+ * 숫자는 전부 `dividendScore.ts`의 상수를 그대로 읽는다. 여기 손으로 적어두면 임계값을 튜닝할 때
+ * 화면만 옛날 값으로 남는다 — 그 임계값들은 애초에 "가설이니 고칠 것"으로 표시된 값들이다.
+ */
+export function ScoreCriteria() {
+  const axes = [
+    {
+      name: "배당안전성",
+      weight: AXIS_WEIGHT.safety,
+      what: "배당을 계속 낼 여력이 있나",
+      parts: [
+        `배당성향 ${SAFETY_PARTS.payout}% — 배당금이 영업현금흐름의 몇 %인지. 섹터마다 경고선이 다르다(리츠는 높은 게 정상)`,
+        `순부채/EBITDA ${SAFETY_PARTS.netDebt}% — 빚이 이익 대비 몇 배인지`,
+        `연속 배당 연수 ${SAFETY_PARTS.years}% — 50년이면 만점, 10년 이하면 0점`,
+      ],
+    },
+    {
+      name: "배당성장성",
+      weight: AXIS_WEIGHT.growth,
+      what: "배당이 얼마나 빨리 자라나",
+      parts: ["5년·1년 배당성장률과 그 둘의 차이(감속폭)를 본다"],
+    },
+    {
+      name: "기업체력",
+      weight: AXIS_WEIGHT.strength,
+      what: "본업이 튼튼한가",
+      parts: ["영업이익률, 매출성장률, 이자보상배율, 설비투자 부담을 같은 비중으로 본다"],
+    },
+    {
+      name: "밸류에이션",
+      weight: AXIS_WEIGHT.value,
+      what: "지금 값이 싼가",
+      parts: ["PER과, 수익률이 자기 5년 평균에서 얼마나 벗어났는지를 본다"],
+    },
+  ];
+
+  return (
+    <details className="rounded-xl bg-surface-container-low p-4">
+      <summary className="cursor-pointer text-label-md font-label-md font-bold text-primary">
+        안전성 점수는 어떻게 매기나요?
+      </summary>
+
+      <div className="mt-stack-md flex flex-col gap-stack-md text-label-md font-label-md text-on-surface-variant">
+        <p>
+          네 가지를 각각 100점으로 매기고 아래 비중으로 합쳐요. 지표가 없는 종목은 그 항목을 빼고
+          남은 항목끼리 다시 100%로 맞춰 계산해요.
+        </p>
+
+        <ul className="flex flex-col gap-stack-sm">
+          {axes.map((a) => (
+            <li key={a.name}>
+              <span className="font-bold text-on-surface">
+                {a.name} {a.weight}%
+              </span>{" "}
+              — {a.what}
+              <ul className="mt-1 list-disc pl-5">
+                {a.parts.map((p) => (
+                  <li key={p}>{p}</li>
+                ))}
+              </ul>
+            </li>
+          ))}
+        </ul>
+
+        <p>
+          <strong className="text-on-surface">배당함정</strong>으로 판정되면 배당안전성에서{" "}
+          {TRAP_PENALTY}점을 뺍니다. 수익률이 자기 평균보다 크게 튀고, 주가가 크게 빠졌고, 재무에
+          부담이 있는 세 가지가 <strong className="text-on-surface">동시에</strong> 맞을 때만이에요
+          — 수익률이 높다는 것만으로는 함정으로 보지 않아요.
+        </p>
+
+        <p>
+          합계 점수의 등급 컷은 <strong className="text-on-surface">안전 {GRADE_CUTS.safe}점 이상</strong>,
+          양호 {GRADE_CUTS.good}점 이상, 주의 {GRADE_CUTS.watch}점 이상, 그 아래가 경계예요.
+        </p>
+
+        <p>
+          이 비중과 기준선은 <strong className="text-on-surface">확정된 정답이 아니라 가설이에요.</strong>{" "}
+          실제로 배당을 삭감한 종목의 삭감 직전 데이터로 판정식을 검증하면서 고쳐나가고 있어요.
+          숫자는 모두 공개된 재무·배당 데이터로 계산했고, 종목별 원지표는 종목 목록에서 볼 수 있어요.
+        </p>
+      </div>
+    </details>
   );
 }
 

@@ -9,8 +9,17 @@ import type { Fundamentals } from "./fundamentals";
  * ticker_analysis에 점수 이력이 쌓이면 삭감 실적과 대조해 고칠 것.
  */
 
-/** 축 가중치. 로드맵에서 정한 초기 가설. */
-const AXIS_WEIGHT = { safety: 40, growth: 25, strength: 20, value: 15 } as const;
+/**
+ * 축 가중치. 로드맵에서 정한 초기 가설.
+ * **화면이 이 값을 그대로 읽어 기준표를 그린다**(`ScoreCriteria`) — 여기만 고치면 화면도 따라온다.
+ */
+export const AXIS_WEIGHT = { safety: 40, growth: 25, strength: 20, value: 15 } as const;
+
+/** 배당안전성 축의 소항목 가중치. 위와 같은 이유로 이름을 붙여 뺐다. */
+export const SAFETY_PARTS = { payout: 45, netDebt: 30, years: 25 } as const;
+
+/** 등급 컷. `grade()`와 화면 기준표가 같은 값을 쓴다. */
+export const GRADE_CUTS = { safe: 75, good: 60, watch: 45 } as const;
 
 /**
  * 배당성향(배당지급액 ÷ 영업현금흐름, %) 섹터별 기준선.
@@ -47,7 +56,7 @@ const TRAP = {
 const DECELERATION_FLAG = -5;
 
 /** 배당함정 확정 시 배당안전성 축에서 깎는 점수. */
-const TRAP_PENALTY = 25;
+export const TRAP_PENALTY = 25;
 
 export type ScoreInput = {
   ticker: string;
@@ -111,9 +120,9 @@ function round1(n: number | null): number | null {
 export type Grade = "안전" | "양호" | "주의" | "경계" | "미분석";
 export function grade(total: number | null): Grade {
   if (total == null) return "미분석";
-  if (total >= 75) return "안전";
-  if (total >= 60) return "양호";
-  if (total >= 45) return "주의";
+  if (total >= GRADE_CUTS.safe) return "안전";
+  if (total >= GRADE_CUTS.good) return "양호";
+  if (total >= GRADE_CUTS.watch) return "주의";
   return "경계";
 }
 
@@ -183,9 +192,9 @@ export function scoreTicker(input: ScoreInput): ScoreResult {
 
   // ── 4축 ───────────────────────────────────────────────────────────────────
   const safetyBase = weighted([
-    [band(payoutOcf, payoutBand.good, payoutBand.bad), 45],
-    [band(netDebtToEbitda, 1, 5), 30],
-    [band(consecutive_years, 50, 10), 25],
+    [band(payoutOcf, payoutBand.good, payoutBand.bad), SAFETY_PARTS.payout],
+    [band(netDebtToEbitda, 1, 5), SAFETY_PARTS.netDebt],
+    [band(consecutive_years, 50, 10), SAFETY_PARTS.years],
   ]);
   // 함정은 축 점수를 깎는 방식으로 반영한다. 소항목으로 넣으면 결측 재정규화에 휩쓸려
   // "다른 지표가 비면 함정 감점도 같이 희석되는" 사고가 난다.
