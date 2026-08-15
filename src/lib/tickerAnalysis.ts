@@ -31,6 +31,8 @@ export type TickerAnalysis = {
   };
   /** `null`이면 뉴스 배치가 아직 이 종목을 못 본 것이고, `[]`면 보고 사건이 없는 것이다. */
   news: NewsEvent[] | null;
+  /** AI 점수 해설. 검증 게이트에서 버려졌거나 아직 안 돌았으면 `null`이다(`narrate.ts`). */
+  narrative: string | null;
 };
 
 /** 마지막 성공 배치가 이만큼 낡으면 화면에 경고 배너를 띄운다(로드맵 85줄). */

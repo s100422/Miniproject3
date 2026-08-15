@@ -947,7 +947,7 @@ export default function PortfolioPage() {
               <div className="mb-stack-md">
                 <AsOfNotice asOf={analysisAsOf} />
               </div>
-              <PortfolioDiagnosis diagnosis={diagnosis} />
+              <PortfolioDiagnosis diagnosis={diagnosis} analysis={analysis} />
             </section>
           )}
 

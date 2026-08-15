@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { AsOfNotice, FlagChips, NewsChips, ScoreBadge } from "@/components/ScoreBadge";
+import { AsOfNotice, FlagChips, NewsChips, ScoreBadge, ScoreNarrative } from "@/components/ScoreBadge";
 import { fetchLatestAnalysis, type TickerAnalysis } from "@/lib/tickerAnalysis";
 
 type Stock = {
@@ -150,6 +150,7 @@ function StockCard({
         <div className="relative z-10 mb-stack-md flex flex-col gap-stack-sm">
           <FlagChips analysis={analysis} />
           <NewsChips news={analysis.news} />
+          <ScoreNarrative analysis={analysis} />
           {/* 점수만 보여주면 판단 근거가 안 보인다. 원지표를 항상 같이 노출한다(로드맵 81~84줄). */}
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-label-md font-label-md text-on-surface-variant">
             <span>

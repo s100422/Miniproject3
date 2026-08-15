@@ -71,6 +71,21 @@ export function FlagChips({ analysis }: { analysis: TickerAnalysis | undefined }
 }
 
 /**
+ * AI가 쓴 점수 해설. **여기 있는 숫자는 전부 코드가 계산한 값이고, 프롬프트에 없던 숫자가
+ * 섞인 문장은 저장 단계에서 이미 버려졌다**(`narrate.ts`의 검증 게이트).
+ * 그래도 사람이 쓴 글이 아니라는 걸 화면에서 숨기지 않는다.
+ */
+export function ScoreNarrative({ analysis }: { analysis: TickerAnalysis | undefined }) {
+  if (!analysis?.narrative) return null;
+  return (
+    <p className="rounded-xl bg-surface-container-low p-3 text-label-md font-label-md text-on-surface-variant">
+      <span className="mr-1 font-bold text-primary">AI 해설</span>
+      {analysis.narrative}
+    </p>
+  );
+}
+
+/**
  * 뉴스 칩. **점수로 안 잡히는 악재**가 배지 옆에 붙는 자리다(로드맵 Phase 2).
  *
  * 그라운딩 검색 결과라 100% 신뢰할 수 없으므로 근거 문장과 출처 링크를 항상 같이 노출한다 —

@@ -1,7 +1,9 @@
 "use client";
 
 import { formatUsd } from "./DividendChart";
+import { ScoreNarrative } from "./ScoreBadge";
 import type { Action, Diagnosis, Tier } from "@/lib/portfolioDiagnosis";
+import type { TickerAnalysis } from "@/lib/tickerAnalysis";
 
 /**
  * 진단 탭. **모든 숫자는 `portfolioDiagnosis.ts`가 코드로 계산한 값이고 여기선 그리기만 한다**
@@ -58,7 +60,14 @@ function Metric({ title, value, note }: { title: string; value: string; note: st
   );
 }
 
-export default function PortfolioDiagnosis({ diagnosis }: { diagnosis: Diagnosis }) {
+export default function PortfolioDiagnosis({
+  diagnosis,
+  analysis = {},
+}: {
+  diagnosis: Diagnosis;
+  /** 액션 후보에 그 종목의 AI 해설을 같이 붙이려고 받는다. 없으면 숫자만 나온다. */
+  analysis?: Record<string, TickerAnalysis>;
+}) {
   const { byTier, annualDividend, weightedSafety, safetyCoverage, sectorHhi, topSector, emptyMonths, actions } =
     diagnosis;
 
@@ -153,6 +162,9 @@ export default function PortfolioDiagnosis({ diagnosis }: { diagnosis: Diagnosis
                 <p className="mt-stack-sm text-label-md font-label-md text-on-surface-variant">
                   {a.reason}
                 </p>
+                <div className="mt-stack-sm">
+                  <ScoreNarrative analysis={analysis[a.ticker]} />
+                </div>
               </li>
             ))}
           </ul>

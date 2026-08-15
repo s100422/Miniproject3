@@ -81,7 +81,8 @@
 
 `as_of` date · `total_score`/`safety_score`/`growth_score`/`strength_score`/`value_score` numeric ·
 `dividend_yield`/`dividend_growth_5y`/`price` numeric · `status` text `check in ('ok','partial','failed')` ·
-`metrics` jsonb NOT NULL default `{}` · `news` jsonb **nullable, 기본값 없음** · `created_at` timestamptz
+`metrics` jsonb NOT NULL default `{}` · `news` jsonb **nullable, 기본값 없음** ·
+`narrative` text nullable · `created_at` timestamptz
 
 **덮어쓰지 않고 쌓는다.** PK에 `as_of`가 들어가서 하루 한 행씩 남고, 그 이력이 점수
 가중치(40/25/20/15)를 나중에 튜닝할 근거가 된다. 같은 날 재실행은 그날 행만 upsert.
@@ -98,10 +99,14 @@
   `{ kind, impact: 'negative'|'positive', reason, source_url }`이고 티커당 최대 3건.
   `kind`는 `dividend_cut`/`dividend_increase`/`earnings`/`guidance`/`credit_rating`/
   `litigation`/`regulation`/`m_and_a` 8종(`riskScreen.ts`).
-- **두 배치가 같은 행을 나눠 쓴다.** 점수는 `/api/analysis/refresh`(23:00 UTC)가 행을 만들고,
-  뉴스는 `/api/analysis/news`(23:30 UTC)가 **이미 있는 최신 회차 행에만** `news`를 덧쓴다.
-  뉴스 배치는 행을 새로 만들지 않는다 — `status` 기본값이 `'ok'`라 점수 없는 행이
-  화면에서 정상으로 보이기 때문이다.
+- **`narrative`는 AI가 쓴 점수 해설이다.** `null`이면 아직 안 돌았거나 **검증 게이트에서
+  버려진 것**이다(`narrate.ts` — 프롬프트에 없던 숫자가 하나라도 있으면 문장을 통째로 버린다).
+  둘을 구분하지 않는다: 어느 쪽이든 화면엔 해설이 없고 점수만 뜬다.
+- **세 배치가 같은 행을 나눠 쓴다.** 점수는 `/api/analysis/refresh`(23:00 UTC)가 행을 만들고,
+  `/api/analysis/news`(23:30)가 `news`를, `/api/analysis/narrate`(23:50)가 `narrative`를
+  **이미 있는 최신 회차 행에만** 덧쓴다. 뒤 둘은 행을 새로 만들지 않는다 — `status` 기본값이
+  `'ok'`라 점수 없는 행이 화면에서 정상으로 보이기 때문이다. 셋을 나눈 건 하나가 실행시간
+  상한에 걸려 죽어도 나머지가 안 죽게 하려는 것이다.
 
 ### `holdings` 테이블은 없다
 
@@ -146,6 +151,7 @@
 | 야후 재무<br>`fundamentals.ts` | `query2` `/ws/fundamentals-timeseries/v1/finance/timeseries/{sym}` | 연간 재무 4년치. 타임아웃 10s |
 | Gemini 플랜생성<br>`gemini.ts` | `gemini-2.5-flash:generateContent` + `responseSchema` | 배분안 2개. 타임아웃 **없음** |
 | Gemini 뉴스<br>`riskScreen.ts` | 같은 모델 + `tools:[{google_search:{}}]` | 티커당 1콜, 동시성 12. 타임아웃 12s. **야간 배치 전용** |
+| Gemini 해설<br>`narrate.ts` | 같은 모델 + `responseSchema` (**웹검색 없음**) | 티커당 1콜, 동시성 12. 타임아웃 12s. **야간 배치 전용** |
 
 호스트는 `https://query1.finance.yahoo.com`, 헤더 `User-Agent: Mozilla/5.0`.
 `toQuoteSymbol`이 `BF.B` → `BF-B` 변환.
@@ -158,6 +164,10 @@
 
 - **Gemini는 `responseSchema`와 `google_search`를 동시에 못 쓴다.** 그래서 `riskScreen.ts`가
   JSON 대신 `종류|부호|근거` 줄 형식을 파싱한다. 구조화 출력과 웹검색은 항상 별개 호출.
+  검색이 필요 없는 `narrate.ts`는 `responseSchema`를 쓰므로 형식 파싱이 아예 없다.
+- **`narrate.ts`의 검증은 프롬프트 문자열 자체를 기준으로 한다.** 사실 블록에 없는 숫자가
+  답변에 있으면 환각으로 보고 문장을 버린다. 그래서 프롬프트와 검증 기준이 갈라질 수 없다 —
+  둘 다 같은 문자열에서 나온다. 지표를 추가하면 사실 블록에만 넣으면 되고 검증기는 안 건드린다.
 - **출처 URL은 답변 텍스트가 아니라 `groundingMetadata`로 온다.** 한 응답에서 사건이 여러 건
   나오므로 첫 `groundingChunk`를 전건에 갖다 붙이면 소송 근거에 배당 기사 링크가 붙는다.
   `groundingSupports`(문장 구간 → chunk 색인)로 건별 귀속하고, 못 찾으면 그 건을 버린다.

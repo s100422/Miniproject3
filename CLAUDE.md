@@ -10,9 +10,12 @@ Supabase 스키마는 레포에 마이그레이션 파일이 없고 원격에만
 
 보유 배당주 진단·조언 기능을 단계적으로 만들고 있다. 채택한 구조와 Phase 0~3이
 `docs/ROADMAP.md`에 있다. "Phase N"을 하라는 요청을 받으면 먼저 그 문서를 읽을 것.
-단계를 끝내면 그 문서의 상태 표시도 갱신한다. **Phase 0~3 완료.** 남은 건 둘 다
-**Gemini 지출 상한(429)** 때문에 막혀 있다 — Phase 2 뉴스 배치의 실데이터 검증과
-Phase 3의 AI 서술 계층. 상한이 풀리면 그 둘부터 할 것.
+단계를 끝내면 그 문서의 상태 표시도 갱신한다. **Phase 0~3 구현 완료.**
+
+**남은 건 검증뿐이고, 그게 `GEMINI_API_KEY` 프로젝트의 월 지출 상한(전 호출 429)에 막혀 있다.**
+AI를 타는 배치 둘(`/api/analysis/news`, `/api/analysis/narrate`)이 아직 한 건도 못 채웠다.
+상한이 풀리면 **두 배치를 각각 한 번씩 돌려 응답의 `checked`·`written` 수치부터 확인할 것** —
+둘 다 fail-open이라 화면은 조용해서, 안 되는 걸 화면만 보고는 못 알아챈다.
 
 # 자체검사
 
@@ -34,6 +37,7 @@ node_modules/.bin/jiti src/lib/dividendScore.check.ts
 | `dividendScore` | 4축 점수, 배당함정 판정 | — |
 | `gemini` | 응답 검증 게이트(환각 티커·근거 없는 설명·지급월 공백) | — |
 | `riskScreen` | 뉴스 파싱, **건별 출처 귀속** | — |
+| `narrate` | **해설 검증 게이트**(프롬프트에 없던 숫자 = 환각) | — |
 | `portfolioDiagnosis` | 3단계 노출도, 가중평균·HHI, 액션 규칙 | — |
 | `dividendStocksAnomalies` | 카탈로그 데이터 이상값 | `node --env-file=.env.local node_modules/jiti/lib/jiti-cli.mjs …` |
 | `fundamentals` | 야후 재무 응답 | 네트워크 |
