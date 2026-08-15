@@ -77,6 +77,12 @@ export type ScoreMetrics = {
   per: number | null;
   yield_z: number | null;
   growth_deceleration: number | null;
+  /**
+   * 12개월 주가 변화율(%). **점수에는 안 들어간다** — 밸류에이션 축이 이미 주가를 반대
+   * 방향으로 반영하고 있어서(오르면 비싸져서 감점), 여기에 주가 수익률 축을 더하면 둘이
+   * 서로 상쇄돼 총점이 아무 말도 안 하게 된다. 배당함정 판정의 입력이자 화면에 보여줄 원지표다.
+   */
+  price_change_12m: number | null;
   fundamentals_as_of: string | null;
   missing: string[];
 };
@@ -237,6 +243,7 @@ export function scoreTicker(input: ScoreInput): ScoreResult {
     per: round1(per),
     yield_z: round1(yieldZ),
     growth_deceleration: round1(deceleration),
+    price_change_12m: rates?.price_change_12m ?? null,
     fundamentals_as_of: f?.asOfDate ?? null,
     missing: [
       ...(f?.missing ?? ["fundamentals"]),

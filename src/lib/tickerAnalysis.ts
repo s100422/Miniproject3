@@ -27,6 +27,8 @@ export type TickerAnalysis = {
     payout_band?: { good: number; warn: number; bad: number };
     net_debt_to_ebitda?: number | null;
     interest_coverage?: number | null;
+    /** 12개월 주가 변화율(%). 점수에는 안 들어가는 참고 지표다(`dividendScore.ts`). */
+    price_change_12m?: number | null;
     fundamentals_as_of?: string | null;
   };
   /** `null`이면 뉴스 배치가 아직 이 종목을 못 본 것이고, `[]`면 보고 사건이 없는 것이다. */

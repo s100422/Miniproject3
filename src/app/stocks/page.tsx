@@ -168,6 +168,20 @@ function StockCard({
                 {analysis.metrics.payout_band && ` (경고선 ${analysis.metrics.payout_band.warn}%)`}
               </span>
             )}
+            {/* 점수에는 안 들어가는 참고 지표라 축 점수와 같은 줄에 두지 않는다. */}
+            {analysis.metrics?.price_change_12m != null && (
+              <span title="12개월 주가 변화율. 점수에는 들어가지 않는 참고 지표예요.">
+                12개월 주가{" "}
+                <span
+                  className={
+                    analysis.metrics.price_change_12m >= 0 ? "text-secondary" : "text-error"
+                  }
+                >
+                  {analysis.metrics.price_change_12m >= 0 ? "+" : ""}
+                  {analysis.metrics.price_change_12m}%
+                </span>
+              </span>
+            )}
           </div>
         </div>
       )}
