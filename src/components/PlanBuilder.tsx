@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { getAnonymousId } from "@/lib/anonymousId";
 import type { YearlyProjection } from "@/lib/dividendCalc";
+import type { NewsEvent } from "@/lib/tickerAnalysis";
+import { NewsChips } from "./ScoreBadge";
 import DividendChart from "./DividendChart";
 import { Spiral } from "./ui/spiral";
 
@@ -19,11 +21,7 @@ type Allocation = {
   payout_months: number[];
   price: number | null;
   reason: string;
-  risk: {
-    signal: "dividend_cut" | "dividend_increase";
-    reason: string;
-    source_url: string;
-  } | null;
+  news: NewsEvent[];
 };
 
 type Candidate = {
@@ -321,10 +319,10 @@ export default function PlanBuilder({ initialValues }: { initialValues?: Initial
         </p>
       )}
 
-      {candidates?.some((c) => c.allocations.some((a) => a.risk)) && (
+      {candidates?.some((c) => c.allocations.some((a) => a.news.length > 0)) && (
         <p className="mx-auto mt-stack-sm max-w-4xl rounded-xl bg-surface-container-low px-4 py-3 text-label-md font-label-md text-on-surface-variant">
-          아래 배당 소식은 <strong className="text-primary">배당 데이터 기준으로 이미 짜인 포트폴리오</strong>에 대해
-          그 이후 확인된 최신 뉴스예요. 배분 비중에는 반영되지 않았으니, 참고해서 필요하면 직접 종목을 빼고
+          아래 소식은 <strong className="text-primary">배당 데이터 기준으로 이미 짜인 포트폴리오</strong>에 대해
+          매일 밤 배치가 검색해둔 최신 뉴스예요. 배분 비중에는 반영되지 않았으니, 참고해서 필요하면 직접 종목을 빼고
           다시 만들어보세요.
         </p>
       )}
@@ -391,31 +389,14 @@ export default function PlanBuilder({ initialValues }: { initialValues?: Initial
                         <p className="mt-stack-sm text-label-md font-label-md text-outline">
                           {a.reason}
                         </p>
-                        {a.risk && (
-                          <div
-                            className={`mt-stack-sm flex flex-wrap items-center gap-2 rounded-lg p-2 text-label-md font-label-md ${
-                              a.risk.signal === "dividend_cut"
-                                ? "bg-error-container text-on-error-container"
-                                : "bg-secondary-container text-on-secondary-container"
-                            }`}
-                          >
-                            <span className="material-symbols-outlined text-base">
-                              {a.risk.signal === "dividend_cut" ? "warning" : "trending_up"}
-                            </span>
-                            <span>{a.risk.reason}</span>
-                            <a
-                              href={a.risk.source_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="underline"
-                            >
-                              출처
-                            </a>
-                            {a.risk.signal === "dividend_cut" && (
+                        {a.news.length > 0 && (
+                          <div className="mt-stack-sm flex flex-col items-start gap-1">
+                            <NewsChips news={a.news} />
+                            {a.news.some((e) => e.impact === "negative") && (
                               <button
                                 type="button"
                                 onClick={() => excludeAndRegenerate(a.ticker)}
-                                className="rounded-full bg-surface px-3 py-1 text-on-surface transition-colors hover:bg-surface-container-high"
+                                className="rounded-full bg-surface-container-high px-3 py-1 text-label-md font-label-md text-on-surface transition-colors hover:bg-surface-container-highest"
                               >
                                 이 종목 빼고 다시 만들기
                               </button>

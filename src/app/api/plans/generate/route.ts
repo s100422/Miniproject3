@@ -2,8 +2,7 @@ import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { callGemini, validateCandidate, type PlanInput, type DividendStock } from "@/lib/gemini";
 import { fetchPrices } from "@/lib/stockPrice";
-import { fetchPrecomputedRates } from "@/lib/tickerAnalysis";
-import { screenRisks } from "@/lib/riskScreen";
+import { fetchPrecomputedRates, fetchLatestNews } from "@/lib/tickerAnalysis";
 import {
   projectDividendGrowth,
   realisticBestAnnualDividend,
@@ -112,9 +111,9 @@ export async function POST(request: Request) {
 
   const allTickers = candidates.flatMap((c) => c.allocations.map((a) => a.ticker));
   // 플랜은 "지금 시가" 기준으로 짜는 것이므로, 생성 시점 주가를 함께 저장해 스냅샷으로 남긴다.
-  // 리스크 스크리닝(최신 뉴스 검색)은 주가 조회와 마찬가지로 부가 정보라 병렬로 조회하고,
-  // 실패해도 플랜 생성 자체는 막지 않는다(screenRisks 내부에서 fail-open 처리).
-  const [prices, risks] = await Promise.all([fetchPrices(allTickers), screenRisks(allTickers)]);
+  // 뉴스는 야간 배치가 미리 검사해둔 걸 읽기만 한다 — 예전엔 여기서 Gemini 그라운딩을
+  // 티커 수만큼 실시간으로 돌려서 생성이 7~12초 느렸다(로드맵 15줄).
+  const [prices, news] = await Promise.all([fetchPrices(allTickers), fetchLatestNews()]);
 
   const results = candidates.map((c) => {
     const rows = projectDividendGrowth(c.allocations, stockRates, monthly_investment, 360);
@@ -133,7 +132,7 @@ export async function POST(request: Request) {
         dividend_growth_5y: stockInfo[a.ticker].dividend_growth_5y,
         payout_months: stockInfo[a.ticker].payout_months,
         price: prices[a.ticker] ?? null,
-        risk: risks[a.ticker] ?? null,
+        news: news[a.ticker] ?? [],
       })),
       monthly_investment,
       chart_data,

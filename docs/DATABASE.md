@@ -50,7 +50,12 @@
 
 `allocations[]` 원소 shape:
 `{ ticker, weight_pct, reason, name, sector, business_summary, dividend_yield,
-   dividend_growth_5y, payout_months, price: number|null, risk: {signal,reason,source_url}|null }`
+   dividend_growth_5y, payout_months, price: number|null,
+   news: {kind,impact,reason,source_url}[] }`
+
+> `news`는 2026-08-15에 `risk: {signal,reason,source_url}|null`을 대체했다. **그 전에 저장된
+> 플랜에는 `risk` 키가 그대로 남아 있고, 화면은 더 이상 그걸 읽지 않는다** — 옛 플랜의
+> 뉴스는 안 보인다. 스냅샷이라 마이그레이션하지 않았다.
 
 `chart_data[]` = `YearlyProjection` = `{ year, base, growth, growthReinvest, growthReinvestReal }`.
 마일스톤 연차(1/5/10/15/20/25/30)만 저장.
@@ -76,7 +81,7 @@
 
 `as_of` date · `total_score`/`safety_score`/`growth_score`/`strength_score`/`value_score` numeric ·
 `dividend_yield`/`dividend_growth_5y`/`price` numeric · `status` text `check in ('ok','partial','failed')` ·
-`metrics` jsonb NOT NULL default `{}` · `created_at` timestamptz
+`metrics` jsonb NOT NULL default `{}` · `news` jsonb **nullable, 기본값 없음** · `created_at` timestamptz
 
 **덮어쓰지 않고 쌓는다.** PK에 `as_of`가 들어가서 하루 한 행씩 남고, 그 이력이 점수
 가중치(40/25/20/15)를 나중에 튜닝할 근거가 된다. 같은 날 재실행은 그날 행만 upsert.
@@ -87,6 +92,16 @@
   종목(`LEG`, `TDS`)이 생기는데, FK가 있으면 검증에 쓸 과거 점수가 같이 사라진다.
 - 인덱스는 PK뿐. "종목별 최신 행" 조회가 PK 순서로 커버되고 연 3만 행 규모다.
 - `metrics`에 배당성향·FCF·부채·마진·함정 플래그와 결측 사유가 들어간다.
+- **`news`의 `null`과 `[]`는 다른 뜻이다.** `null` = 뉴스 배치가 아직 이 종목을 못 봤다,
+  `[]` = 봤는데 사건이 없다. 실패를 빈 배열로 적으면 검사 못 한 종목이 화면에서 깨끗한
+  종목처럼 보인다. 그래서 기본값을 안 걸었다. 원소는
+  `{ kind, impact: 'negative'|'positive', reason, source_url }`이고 티커당 최대 3건.
+  `kind`는 `dividend_cut`/`dividend_increase`/`earnings`/`guidance`/`credit_rating`/
+  `litigation`/`regulation`/`m_and_a` 8종(`riskScreen.ts`).
+- **두 배치가 같은 행을 나눠 쓴다.** 점수는 `/api/analysis/refresh`(23:00 UTC)가 행을 만들고,
+  뉴스는 `/api/analysis/news`(23:30 UTC)가 **이미 있는 최신 회차 행에만** `news`를 덧쓴다.
+  뉴스 배치는 행을 새로 만들지 않는다 — `status` 기본값이 `'ok'`라 점수 없는 행이
+  화면에서 정상으로 보이기 때문이다.
 
 ### `holdings` 테이블은 없다
 
@@ -130,7 +145,7 @@
 | 야후 배당이력<br>`dividendRates.ts` | `/v8/finance/chart/{sym}?range=8y&interval=1d&events=div` | **8년치 일별 주가 + 배당 이벤트.** 타임아웃 8s |
 | 야후 재무<br>`fundamentals.ts` | `query2` `/ws/fundamentals-timeseries/v1/finance/timeseries/{sym}` | 연간 재무 4년치. 타임아웃 10s |
 | Gemini 플랜생성<br>`gemini.ts` | `gemini-2.5-flash:generateContent` + `responseSchema` | 배분안 2개. 타임아웃 **없음** |
-| Gemini 리스크<br>`riskScreen.ts` | 같은 모델 + `tools:[{google_search:{}}]` | 티커당 1콜 병렬. 타임아웃 12s |
+| Gemini 뉴스<br>`riskScreen.ts` | 같은 모델 + `tools:[{google_search:{}}]` | 티커당 1콜, 동시성 12. 타임아웃 12s. **야간 배치 전용** |
 
 호스트는 `https://query1.finance.yahoo.com`, 헤더 `User-Agent: Mozilla/5.0`.
 `toQuoteSymbol`이 `BF.B` → `BF-B` 변환.
@@ -142,7 +157,14 @@
 ### 알아둘 함정
 
 - **Gemini는 `responseSchema`와 `google_search`를 동시에 못 쓴다.** 그래서 `riskScreen.ts`가
-  JSON 대신 선두 토큰(`CUT|INCREASE|NONE`)을 파싱한다. 구조화 출력과 웹검색은 항상 별개 호출.
+  JSON 대신 `종류|부호|근거` 줄 형식을 파싱한다. 구조화 출력과 웹검색은 항상 별개 호출.
+- **출처 URL은 답변 텍스트가 아니라 `groundingMetadata`로 온다.** 한 응답에서 사건이 여러 건
+  나오므로 첫 `groundingChunk`를 전건에 갖다 붙이면 소송 근거에 배당 기사 링크가 붙는다.
+  `groundingSupports`(문장 구간 → chunk 색인)로 건별 귀속하고, 못 찾으면 그 건을 버린다.
+  예외는 chunk가 하나뿐일 때뿐. 파서 자체검사: `riskScreen.check.ts`(네트워크 안 탄다).
+- **Gemini 프로젝트에 월 지출 상한이 걸리면 전 호출이 429다.** fail-open이라 화면엔 아무
+  표시가 없고 뉴스만 조용히 비어 보인다. 뉴스가 통째로 안 뜨면 배치 응답의 `checked`부터 볼 것
+  (<https://ai.studio/spend>).
 - **`dividend_stocks`의 값은 폴백이다.** `dividend_yield`/`dividend_growth_5y`는 손입력이고,
   `ticker_analysis`에 배치가 계산한 값이 있으면 그쪽이 우선한다. **카탈로그에 되쓰지는 않는다.**
 - **Next 캐시 계층은 여전히 0건이다** (`revalidate`·`cache:`·`use cache` 전부 안 씀).

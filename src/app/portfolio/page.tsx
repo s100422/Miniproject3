@@ -12,7 +12,7 @@ import MonthlyDividendChart from "@/components/MonthlyDividendChart";
 import PortfolioDividendSimulator from "@/components/PortfolioDividendSimulator";
 import { Spiral } from "@/components/ui/spiral";
 import { Select } from "@/components/ui/select";
-import { AsOfNotice, FlagChips, ScoreBadge } from "@/components/ScoreBadge";
+import { AsOfNotice, FlagChips, NewsChips, ScoreBadge } from "@/components/ScoreBadge";
 import { fetchLatestAnalysis, type TickerAnalysis } from "@/lib/tickerAnalysis";
 
 type StoredTransaction = HoldingTransaction & { id: string };
@@ -890,6 +890,7 @@ export default function PortfolioPage() {
                           <div className="flex flex-col items-start gap-1">
                             <ScoreBadge analysis={analysis[r.ticker]} />
                             <FlagChips analysis={analysis[r.ticker]} />
+                            <NewsChips news={analysis[r.ticker]?.news} compact />
                           </div>
                         </td>
                         <td className="border-b border-outline-variant px-3 py-2 text-right">

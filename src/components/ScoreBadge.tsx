@@ -1,7 +1,14 @@
 "use client";
 
 import { grade } from "@/lib/dividendScore";
-import { daysSince, FLAG_LABEL, STALE_DAYS, type TickerAnalysis } from "@/lib/tickerAnalysis";
+import {
+  daysSince,
+  FLAG_LABEL,
+  NEWS_KIND_LABEL,
+  STALE_DAYS,
+  type NewsEvent,
+  type TickerAnalysis,
+} from "@/lib/tickerAnalysis";
 
 /** 등급별 색. 4단계라 secondary(안전)와 error(경계) 사이에 warning 한 칸이 들어간다. */
 const GRADE_STYLE: Record<string, string> = {
@@ -60,6 +67,70 @@ export function FlagChips({ analysis }: { analysis: TickerAnalysis | undefined }
         </span>
       ))}
     </span>
+  );
+}
+
+/**
+ * 뉴스 칩. **점수로 안 잡히는 악재**가 배지 옆에 붙는 자리다(로드맵 Phase 2).
+ *
+ * 그라운딩 검색 결과라 100% 신뢰할 수 없으므로 근거 문장과 출처 링크를 항상 같이 노출한다 —
+ * 사용자가 원문을 직접 확인할 수 있어야 한다(로드맵 "지키기로 한 것").
+ * `news`가 `null`이면 아직 검사되지 않은 종목이라 아무것도 그리지 않는다.
+ *
+ * `compact`는 표 안에 들어갈 때. 근거 문장이 한두 문장이라 셀을 무너뜨려서 종류 라벨만 쓰고
+ * 문장은 툴팁으로 돌린다.
+ */
+export function NewsChips({
+  news,
+  compact = false,
+}: {
+  news: NewsEvent[] | null | undefined;
+  compact?: boolean;
+}) {
+  if (!news?.length) return null;
+
+  const tone = (e: NewsEvent) =>
+    e.impact === "negative"
+      ? "bg-error-container text-on-error-container"
+      : "bg-secondary-container text-on-secondary-container";
+
+  if (compact) {
+    return (
+      <span className="inline-flex flex-wrap gap-1">
+        {news.map((e, i) => (
+          <a
+            key={i}
+            href={e.source_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={e.reason}
+            className={`rounded-full px-2 py-0.5 text-label-md font-label-md underline ${tone(e)}`}
+          >
+            {NEWS_KIND_LABEL[e.kind] ?? e.kind}
+          </a>
+        ))}
+      </span>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      {news.map((e, i) => (
+        <div
+          key={i}
+          className={`flex flex-wrap items-center gap-2 rounded-lg p-2 text-label-md font-label-md ${tone(e)}`}
+        >
+          <span className="material-symbols-outlined text-base">
+            {e.impact === "negative" ? "warning" : "trending_up"}
+          </span>
+          <span className="font-bold">{NEWS_KIND_LABEL[e.kind] ?? e.kind}</span>
+          <span>{e.reason}</span>
+          <a href={e.source_url} target="_blank" rel="noopener noreferrer" className="underline">
+            출처
+          </a>
+        </div>
+      ))}
+    </div>
   );
 }
 
