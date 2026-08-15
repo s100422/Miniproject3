@@ -10,8 +10,9 @@ Supabase 스키마는 레포에 마이그레이션 파일이 없고 원격에만
 
 보유 배당주 진단·조언 기능을 단계적으로 만들고 있다. 채택한 구조와 Phase 0~3이
 `docs/ROADMAP.md`에 있다. "Phase N"을 하라는 요청을 받으면 먼저 그 문서를 읽을 것.
-단계를 끝내면 그 문서의 상태 표시도 갱신한다. **Phase 0~2 코드 완료, 다음은 Phase 3(진단 탭).**
-Phase 2는 Gemini 지출 상한(429) 때문에 실데이터 검증만 밀려 있다 — 로드맵 Phase 2 절 참고.
+단계를 끝내면 그 문서의 상태 표시도 갱신한다. **Phase 0~3 완료.** 남은 건 둘 다
+**Gemini 지출 상한(429)** 때문에 막혀 있다 — Phase 2 뉴스 배치의 실데이터 검증과
+Phase 3의 AI 서술 계층. 상한이 풀리면 그 둘부터 할 것.
 
 # 자체검사
 
@@ -20,6 +21,9 @@ Phase 2는 Gemini 지출 상한(429) 때문에 실데이터 검증만 밀려 있
 ```
 node_modules/.bin/jiti src/lib/dividendScore.check.ts
 ```
+
+`riskScreen.check.ts`(뉴스 파싱·출처 귀속)와 `portfolioDiagnosis.check.ts`(진단 지표·액션 규칙)는
+네트워크를 안 탄다.
 
 `jiti`는 Next가 이미 의존하는 패키지다(새로 깔지 말 것). `fundamentals`·`dividendScore.backtest`는
 네트워크를 실제로 탄다. **점수 임계값을 손대면 `dividendScore.backtest.check.ts`를 반드시 돌릴 것** —

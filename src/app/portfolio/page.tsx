@@ -10,6 +10,8 @@ import AllocationPie from "@/components/AllocationPie";
 import HoldingsDividendCalendar from "@/components/HoldingsDividendCalendar";
 import MonthlyDividendChart from "@/components/MonthlyDividendChart";
 import PortfolioDividendSimulator from "@/components/PortfolioDividendSimulator";
+import PortfolioDiagnosis from "@/components/PortfolioDiagnosis";
+import { diagnosePortfolio } from "@/lib/portfolioDiagnosis";
 import { Spiral } from "@/components/ui/spiral";
 import { Select } from "@/components/ui/select";
 import { AsOfNotice, FlagChips, NewsChips, ScoreBadge } from "@/components/ScoreBadge";
@@ -26,6 +28,7 @@ type StoredReceipt = {
 type CatalogStock = {
   ticker: string;
   name: string;
+  sector: string;
   dividend_yield: number;
   dividend_growth_5y: number;
   payout_months: number[];
@@ -169,7 +172,7 @@ function DateField({
   );
 }
 
-const TABS = ["보유 현황", "배당지급월", "거래 내역", "배당 기록", "배당 시뮬레이션"] as const;
+const TABS = ["보유 현황", "진단", "배당지급월", "거래 내역", "배당 기록", "배당 시뮬레이션"] as const;
 type PortfolioTab = (typeof TABS)[number];
 
 type DatePreset = "all" | "today" | "1w" | "3m" | "6m" | "custom";
@@ -359,7 +362,7 @@ export default function PortfolioPage() {
     if (!session) return;
     supabase
       .from("dividend_stocks")
-      .select("ticker, name, dividend_yield, dividend_growth_5y, payout_months")
+      .select("ticker, name, sector, dividend_yield, dividend_growth_5y, payout_months")
       .then(({ data }) => setCatalog(data ?? []));
     loadTransactions();
     loadReceipts();
@@ -477,6 +480,14 @@ export default function PortfolioPage() {
     name: r.name,
     marketValue: r.marketValue ?? r.costBasis,
   }));
+
+  const diagnosis = diagnosePortfolio({
+    holdings: holdingsForCalendar,
+    analysis,
+    catalog: Object.fromEntries(catalogByTicker),
+    receipts: receipts ?? [],
+    now: new Date(),
+  });
 
   const allFilled = [ticker, name, quantity, price, tradeDate].every(
     (v) => v !== "",
@@ -929,6 +940,15 @@ export default function PortfolioPage() {
               </div>
               </section>
             </>
+          )}
+
+          {tab === "진단" && rows.length > 0 && (
+            <section className="mb-section-gap rounded-2xl bg-surface-container-lowest p-8 shadow-[0_4px_12px_rgba(0,8,31,0.05)]">
+              <div className="mb-stack-md">
+                <AsOfNotice asOf={analysisAsOf} />
+              </div>
+              <PortfolioDiagnosis diagnosis={diagnosis} />
+            </section>
           )}
 
           {tab === "배당지급월" && holdingsForCalendar.length > 0 && (
