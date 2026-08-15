@@ -184,7 +184,7 @@ function buildActions(
       kind: "reduce",
       ticker: target.ticker,
       name: target.name,
-      reason: `안전성 ${target.score ?? "—"}점(${target.grade})인데 내 연배당의 ${target.dividendShare}%가 여기서 나온다.`,
+      reason: `종합 ${target.score ?? "—"}점(${target.grade})인데 내 연배당의 ${target.dividendShare}%가 여기서 나온다.`,
     });
   }
 
@@ -199,7 +199,9 @@ function buildActions(
       kind: "expand",
       ticker: expand.ticker,
       name: expand.name,
-      reason: `안전성 ${expand.score}점(${expand.grade})으로 보유 종목 중 상위인데 내 연배당의 ${expand.dividendShare}%뿐이다.`,
+      // **"보유 종목 중 상위"라고 쓰지 않는다.** 경고 없는 종목이 하나뿐이면 경쟁 없이 뽑힌
+      // 것인데 그 표현은 비교를 거친 것처럼 읽힌다. 규칙이 실제로 본 조건만 그대로 쓴다.
+      reason: `경고 신호 없이 종합 ${expand.score}점(${expand.grade})인데, 내 연배당의 ${expand.dividendShare}%만 여기서 나온다. 주가나 평가손익은 보지 않은 결과다.`,
     });
   }
 
@@ -222,8 +224,8 @@ function buildActions(
       ticker: pick.ticker,
       name: catalog[pick.ticker]?.name ?? pick.ticker,
       reason: months.length
-        ? `안전성 ${pick.total_score}점이고, 지금 배당이 안 들어오는 ${months.join("·")}월에 지급한다.`
-        : `안전성 ${pick.total_score}점으로 카탈로그 상위인데 아직 보유하지 않았다.`,
+        ? `종합 ${pick.total_score}점이고, 지금 배당이 안 들어오는 ${months.join("·")}월에 지급한다.`
+        : `종합 ${pick.total_score}점으로 카탈로그 상위인데 아직 보유하지 않았다.`,
     });
   }
 

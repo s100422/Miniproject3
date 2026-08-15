@@ -20,7 +20,10 @@ const GRADE_STYLE: Record<string, string> = {
 };
 
 /**
- * 안전성 배지. **점수를 못 낸 종목은 조용히 빼지 않고 "미분석"으로 명시한다** —
+ * 종합 점수 배지. **"안전성"은 4축 중 하나의 이름이지 총점의 이름이 아니다** — 둘을 같은 말로
+ * 부르면 "종합 58.5점"과 "안전성 59.5점"이 화면에서 구별되지 않는다.
+ *
+ * **점수를 못 낸 종목은 조용히 빼지 않고 "미분석"으로 명시한다** —
  * 빼버리면 화면에서 사라져서 위험 노출도가 실제보다 낮아 보인다(로드맵 86줄).
  */
 export function ScoreBadge({
@@ -71,6 +74,57 @@ export function FlagChips({ analysis }: { analysis: TickerAnalysis | undefined }
 }
 
 /**
+ * 4축 분해. **총점 하나로 뭉개면 축이 극단적으로 갈린 종목의 정보가 사라진다** — 체력 83.6에
+ * 밸류 1.7인 종목과 전 축이 40점대인 종목이 화면에서 똑같이 "주의 58점"으로 보인다.
+ * 그래서 총점을 쓰는 자리엔 이걸 같이 붙이고, **총점을 가장 많이 끌어내린 축을 표시**한다.
+ */
+/**
+ * 이만큼(총점 기준) 깎은 축만 표시한다. 등급 컷 간격이 15점이라, 한 축이 8점을 깎았으면
+ * 등급 하나의 절반 이상을 혼자 움직인 것이다. 이 선이 없으면 전 축이 90점대인 종목에도
+ * 화살표가 붙어서 없는 문제를 있는 것처럼 보이게 한다.
+ */
+const DRAG_THRESHOLD = 8;
+
+export function AxisScores({ analysis }: { analysis: TickerAnalysis | undefined }) {
+  if (!analysis || analysis.status === "failed") return null;
+
+  const axes = [
+    { label: "안전성", score: analysis.safety_score, weight: AXIS_WEIGHT.safety },
+    { label: "성장성", score: analysis.growth_score, weight: AXIS_WEIGHT.growth },
+    { label: "체력", score: analysis.strength_score, weight: AXIS_WEIGHT.strength },
+    { label: "밸류", score: analysis.value_score, weight: AXIS_WEIGHT.value },
+  ];
+
+  // **"가장 낮은 축"이 아니라 "총점을 많이 깎은 축"**을 표시한다. 가중치 15%인 밸류의 10점과
+  // 40%인 안전성의 10점은 총점에 미치는 영향이 다르다.
+  const cost = (a: (typeof axes)[number]) => ((100 - (a.score ?? 100)) * a.weight) / 100;
+
+  return (
+    <span className="inline-flex flex-wrap gap-x-3 gap-y-1 text-label-md font-label-md text-on-surface-variant">
+      {axes.map((a) => {
+        // 하나만 고르지 않는다. ABBV처럼 안전성과 밸류가 나란히 끌어내리는 종목이 있는데,
+        // 그때 한 축만 표시하면 "저것만 고치면 되는" 것처럼 읽힌다.
+        const drags = a.score != null && cost(a) >= DRAG_THRESHOLD;
+        return (
+          <span
+            key={a.label}
+            title={
+              a.score != null
+                ? `${a.label} ${a.score}점 · 가중치 ${a.weight}% · 만점 대비 총점에서 ${cost(a).toFixed(1)}점 손해`
+                : `${a.label} 미분석`
+            }
+            className={drags ? "font-bold text-error" : undefined}
+          >
+            {a.label} {a.score ?? "—"}
+            {drags && ` ↓${cost(a).toFixed(1)}`}
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
+/**
  * 점수 기준표. **점수를 보여주면서 매기는 방법을 안 보여주면 사용자는 그 숫자를 검증할 수 없다**
  * — 근거를 항상 같이 노출한다는 원칙이 점수 자체에도 적용돼야 한다(로드맵 "지키기로 한 것").
  *
@@ -112,7 +166,7 @@ export function ScoreCriteria() {
   return (
     <details className="rounded-xl bg-surface-container-low p-4">
       <summary className="cursor-pointer text-label-md font-label-md font-bold text-primary">
-        안전성 점수는 어떻게 매기나요?
+        종합 점수는 어떻게 매기나요?
       </summary>
 
       <div className="mt-stack-md flex flex-col gap-stack-md text-label-md font-label-md text-on-surface-variant">
@@ -145,7 +199,7 @@ export function ScoreCriteria() {
         </p>
 
         <p>
-          합계 점수의 등급 컷은 <strong className="text-on-surface">안전 {GRADE_CUTS.safe}점 이상</strong>,
+          종합 점수의 등급 컷은 <strong className="text-on-surface">안전 {GRADE_CUTS.safe}점 이상</strong>,
           양호 {GRADE_CUTS.good}점 이상, 주의 {GRADE_CUTS.watch}점 이상, 그 아래가 경계예요.
         </p>
 

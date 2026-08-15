@@ -869,7 +869,7 @@ export default function PortfolioPage() {
                         종목
                       </th>
                       <th className="border-b border-outline-variant px-3 py-2">
-                        배당 안전성
+                        종합 점수
                       </th>
                       <th className="border-b border-outline-variant px-3 py-2 text-right">
                         수량

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import {
   AsOfNotice,
+  AxisScores,
   FlagChips,
   NewsChips,
   ScoreBadge,
@@ -160,10 +161,7 @@ function StockCard({
           <ScoreNarrative analysis={analysis} />
           {/* 점수만 보여주면 판단 근거가 안 보인다. 원지표를 항상 같이 노출한다(로드맵 81~84줄). */}
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-label-md font-label-md text-on-surface-variant">
-            <span>
-              안전 {analysis.safety_score ?? "—"} · 성장 {analysis.growth_score ?? "—"} · 체력{" "}
-              {analysis.strength_score ?? "—"} · 밸류 {analysis.value_score ?? "—"}
-            </span>
+            <AxisScores analysis={analysis} />
             {analysis.metrics?.payout_ocf != null && (
               <span>
                 배당성향 {analysis.metrics.payout_ocf}%
@@ -266,7 +264,7 @@ export default function StocksPage() {
           }`}
         >
           <span className="material-symbols-outlined mr-1 align-middle text-[16px]">sort</span>
-          안전성 낮은 순
+          종합 점수 낮은 순
         </button>
       </div>
 

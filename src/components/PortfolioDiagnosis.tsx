@@ -1,7 +1,7 @@
 "use client";
 
 import { formatUsd } from "./DividendChart";
-import { ScoreCriteria, ScoreNarrative } from "./ScoreBadge";
+import { AxisScores, ScoreCriteria, ScoreNarrative } from "./ScoreBadge";
 import type { Action, Diagnosis, Tier } from "@/lib/portfolioDiagnosis";
 import type { TickerAnalysis } from "@/lib/tickerAnalysis";
 
@@ -119,12 +119,12 @@ export default function PortfolioDiagnosis({
 
       <section className="grid grid-cols-1 gap-stack-md sm:grid-cols-3">
         <Metric
-          title="배당가중 안전성"
+          title="배당가중 평균 점수"
           value={weightedSafety != null ? `${weightedSafety}점` : "—"}
           note={
             // 그냥 평균이 아니라 배당가중이라는 게 이 지표의 전부다. 단순평균은 배당을 거의 안
             // 주는 종목과 내 배당의 절반을 대는 종목을 똑같이 세서, 실제 위험을 흐린다.
-            `종목별 안전성 점수를 배당 금액 비중으로 평균한 값이에요. 배당을 많이 주는 종목의 점수가 그만큼 크게 반영돼요. ${
+            `종목별 종합 점수를 배당 금액 비중으로 평균한 값이에요. 배당을 많이 주는 종목의 점수가 그만큼 크게 반영돼요. ${
               safetyCoverage >= 100
                 ? "보유 배당 전체가 반영됐어요."
                 : `지금은 내 배당의 ${safetyCoverage}%만 반영됐고, 나머지는 미분석 종목이에요.`
@@ -172,6 +172,10 @@ export default function PortfolioDiagnosis({
                 <p className="mt-stack-sm text-label-md font-label-md text-on-surface-variant">
                   {a.reason}
                 </p>
+                {/* 총점만 적어두면 "왜 이 점수인지"가 안 보인다. 축이 갈린 종목일수록 그렇다. */}
+                <div className="mt-stack-sm">
+                  <AxisScores analysis={analysis[a.ticker]} />
+                </div>
                 <div className="mt-stack-sm">
                   <ScoreNarrative analysis={analysis[a.ticker]} />
                 </div>
