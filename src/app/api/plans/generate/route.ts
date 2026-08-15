@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { callGemini, validateCandidate, type PlanInput, type DividendStock } from "@/lib/gemini";
 import { fetchPrices } from "@/lib/stockPrice";
-import { fetchDividendRates } from "@/lib/dividendRates";
+import { fetchPrecomputedRates } from "@/lib/tickerAnalysis";
 import { screenRisks } from "@/lib/riskScreen";
 import {
   projectDividendGrowth,
@@ -51,9 +51,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "제외한 종목이 너무 많아 추천할 배당주가 없어요." }, { status: 400 });
   }
 
-  // 손입력 DB 값 대신 야후 배당 이력으로 직접 계산한 실시간 값을 우선 쓴다.
-  // 계산 못 한 종목(API 실패 등)은 DB 값을 폴백으로 그대로 둔다.
-  const liveRates = await fetchDividendRates(stocks.map((s) => s.ticker));
+  // 손입력 DB 값 대신 배치가 야후 배당 이력으로 계산해둔 값을 우선 쓴다.
+  // 배치가 계산 못 한 종목은 DB 값을 폴백으로 그대로 둔다.
+  const liveRates = await fetchPrecomputedRates();
   for (const s of stocks as StockRow[]) {
     const live = liveRates[s.ticker];
     if (live?.dividend_yield != null) s.dividend_yield = live.dividend_yield;

@@ -36,6 +36,11 @@
   --color-error-container: #ffdad6;
   --color-on-error-container: #93000a;
 
+  /* 안전성 배지가 4단계(안전/양호/주의/경계)라 error와 secondary 사이에 한 칸이 더 필요하다.
+     Stitch 시안엔 없던 역할이라 M3 관례에 맞춰 컨테이너 쌍만 추가한다. */
+  --color-warning-container: #ffddb0;
+  --color-on-warning-container: #6b4400;
+
   --color-background: #f5faf9;
   --color-on-background: #171d1c;
   --color-surface: #f5faf9;

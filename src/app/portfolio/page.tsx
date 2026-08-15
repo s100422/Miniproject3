@@ -12,6 +12,8 @@ import MonthlyDividendChart from "@/components/MonthlyDividendChart";
 import PortfolioDividendSimulator from "@/components/PortfolioDividendSimulator";
 import { Spiral } from "@/components/ui/spiral";
 import { Select } from "@/components/ui/select";
+import { AsOfNotice, FlagChips, ScoreBadge } from "@/components/ScoreBadge";
+import { fetchLatestAnalysis, type TickerAnalysis } from "@/lib/tickerAnalysis";
 
 type StoredTransaction = HoldingTransaction & { id: string };
 type StoredReceipt = {
@@ -273,7 +275,6 @@ export default function PortfolioPage() {
     null,
   );
   const [catalog, setCatalog] = useState<CatalogStock[]>([]);
-  const [liveYields, setLiveYields] = useState<Record<string, number>>({});
   const [prices, setPrices] = useState<Record<string, number>>({});
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -281,6 +282,8 @@ export default function PortfolioPage() {
     null,
   );
   const [tab, setTab] = useState<PortfolioTab>("보유 현황");
+  const [analysis, setAnalysis] = useState<Record<string, TickerAnalysis>>({});
+  const [analysisAsOf, setAnalysisAsOf] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingTransactionId, setEditingTransactionId] = useState<string | null>(null);
 
@@ -314,6 +317,15 @@ export default function PortfolioPage() {
   const [receiptDatePreset, setReceiptDatePreset] = useState<DatePreset>("all");
   const [receiptCustomStart, setReceiptCustomStart] = useState("");
   const [receiptCustomEnd, setReceiptCustomEnd] = useState("");
+
+  useEffect(() => {
+    fetchLatestAnalysis()
+      .then(({ asOf, byTicker }) => {
+        setAnalysisAsOf(asOf);
+        setAnalysis(byTicker);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
@@ -353,23 +365,15 @@ export default function PortfolioPage() {
     loadReceipts();
   }, [session, loadTransactions, loadReceipts]);
 
-  // 손입력 DB 값 대신 야후 배당 이력 기반 실시간 수익률로 배당 캘린더를 계산한다.
-  useEffect(() => {
-    if (catalog.length === 0) return;
-    const tickers = catalog.map((c) => c.ticker).join(",");
-    fetch(`/api/stocks/rates?tickers=${encodeURIComponent(tickers)}`)
-      .then((r) => r.json())
-      .then((d) => {
-        const rates: Record<string, { dividend_yield: number | null }> =
-          d.rates ?? {};
-        const yields: Record<string, number> = {};
-        for (const [ticker, rate] of Object.entries(rates)) {
-          if (rate.dividend_yield != null) yields[ticker] = rate.dividend_yield;
-        }
-        setLiveYields(yields);
-      })
-      .catch(() => {});
-  }, [catalog]);
+  // 손입력 DB 값 대신 배치가 계산해둔 수익률로 배당 캘린더를 만든다.
+  // 예전엔 이 화면에 들어올 때마다 야후에 86건을 던졌다.
+  const liveYields = useMemo(() => {
+    const yields: Record<string, number> = {};
+    for (const [ticker, row] of Object.entries(analysis)) {
+      if (row.dividend_yield != null) yields[ticker] = row.dividend_yield;
+    }
+    return yields;
+  }, [analysis]);
 
   const holdings = useMemo(
     () => (transactions ? aggregateHoldings(transactions) : []),
@@ -843,14 +847,18 @@ export default function PortfolioPage() {
               </div>
 
               <div className="flex-1 overflow-x-auto rounded-2xl bg-surface-container-lowest p-8 shadow-[0_4px_12px_rgba(0,8,31,0.05)]">
-                <h3 className="mb-stack-md text-headline-md font-headline-md text-primary">
-                  보유 종목
-                </h3>
-                <table className="w-full min-w-[560px] border-collapse text-left text-body-md font-body-md">
+                <div className="mb-stack-md flex flex-wrap items-center justify-between gap-stack-sm">
+                  <h3 className="text-headline-md font-headline-md text-primary">보유 종목</h3>
+                  <AsOfNotice asOf={analysisAsOf} />
+                </div>
+                <table className="w-full min-w-[680px] border-collapse text-left text-body-md font-body-md">
                   <thead>
                     <tr className="text-label-md font-label-md text-on-surface-variant">
                       <th className="border-b border-outline-variant px-3 py-2">
                         종목
+                      </th>
+                      <th className="border-b border-outline-variant px-3 py-2">
+                        배당 안전성
                       </th>
                       <th className="border-b border-outline-variant px-3 py-2 text-right">
                         수량
@@ -877,6 +885,12 @@ export default function PortfolioPage() {
                           <span className="font-normal text-on-surface-variant">
                             ({r.ticker})
                           </span>
+                        </td>
+                        <td className="border-b border-outline-variant px-3 py-2">
+                          <div className="flex flex-col items-start gap-1">
+                            <ScoreBadge analysis={analysis[r.ticker]} />
+                            <FlagChips analysis={analysis[r.ticker]} />
+                          </div>
                         </td>
                         <td className="border-b border-outline-variant px-3 py-2 text-right">
                           {r.quantity}

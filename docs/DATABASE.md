@@ -5,11 +5,21 @@
 체크인된 스키마 기록이므로, DB를 바꾸면 여기도 같이 고칠 것.
 
 프로젝트: `dividend-travel-planner` · ref `dvnebnuyhxmansnvkizl` · ap-northeast-2 · PG17
-환경변수는 `.env.local` — `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `GEMINI_API_KEY`
+환경변수는 `.env.local`:
+
+| 이름 | 용도 | 브라우저 노출 |
+|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | | 예 |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | RLS 적용받는 공개 키 | 예 |
+| `GEMINI_API_KEY` | 플랜 생성·리스크 검색 | 아니오 |
+| `SUPABASE_SERVICE_ROLE_KEY` | **RLS 우회.** 야간 배치 쓰기 전용 | **절대 안 됨** |
+| `CRON_SECRET` | 크론 라우트 인증. Vercel이 `Bearer`로 붙여 보낸다 | 아니오 |
+
+뒤 두 개는 Vercel 환경변수에도 같은 값으로 있어야 한다(Production, Sensitive).
 
 ---
 
-## 테이블 (public, 4개 — 전부 RLS 켜짐)
+## 테이블 (public, 5개 — 전부 RLS 켜짐)
 
 ### `dividend_stocks` — 큐레이션 카탈로그, 86행, PK `ticker`
 
@@ -62,6 +72,22 @@
 
 **금액은 전부 세후라는 게 관례.** 인덱스: PK만.
 
+### `ticker_analysis` — 야간 배치가 채우는 종목 점수, PK `(ticker, as_of)`
+
+`as_of` date · `total_score`/`safety_score`/`growth_score`/`strength_score`/`value_score` numeric ·
+`dividend_yield`/`dividend_growth_5y`/`price` numeric · `status` text `check in ('ok','partial','failed')` ·
+`metrics` jsonb NOT NULL default `{}` · `created_at` timestamptz
+
+**덮어쓰지 않고 쌓는다.** PK에 `as_of`가 들어가서 하루 한 행씩 남고, 그 이력이 점수
+가중치(40/25/20/15)를 나중에 튜닝할 근거가 된다. 같은 날 재실행은 그날 행만 upsert.
+
+- **쓰기 정책이 아예 없다.** SELECT만 `true`라 anon 키로는 쓰기가 원천 차단되고,
+  RLS를 우회하는 서비스롤(크론)만 쓴다 — `plans`의 실수를 반복하지 않는 형태.
+- **`dividend_stocks`로 가는 FK를 일부러 안 걸었다.** 배당 삭감 후 카탈로그에서 빠지는
+  종목(`LEG`, `TDS`)이 생기는데, FK가 있으면 검증에 쓸 과거 점수가 같이 사라진다.
+- 인덱스는 PK뿐. "종목별 최신 행" 조회가 PK 순서로 커버되고 연 3만 행 규모다.
+- `metrics`에 배당성향·FCF·부채·마진·함정 플래그와 결측 사유가 들어간다.
+
 ### `holdings` 테이블은 없다
 
 보유 현황은 `holding_transactions`에서 **메모리에서 계산**된다 —
@@ -75,6 +101,7 @@
 | 테이블 | 명령 | using / with check |
 |---|---|---|
 | dividend_stocks | SELECT | `true` |
+| ticker_analysis | SELECT | `true` — **쓰기 정책 없음(서비스롤 전용)** |
 | holding_transactions | ALL | `auth.uid() = user_id` |
 | dividend_receipts | ALL | `auth.uid() = user_id` |
 | plans | SELECT / INSERT / UPDATE / DELETE | **전부 `true`** |
@@ -89,13 +116,19 @@
 
 ## 외부 데이터 소스
 
-두 라우트(`/api/portfolio/prices`, `/api/stocks/rates`)는 **야후가 브라우저 CORS를 막아서**
-존재하는 서버 프록시일 뿐이다.
+`/api/portfolio/prices`는 **야후가 브라우저 CORS를 막아서** 존재하는 서버 프록시일 뿐이다.
+보유 종목 수(10개 안팎)만큼만 부르고, 현재가는 실시간이어야 해서 남겨뒀다.
+
+**화면은 야후를 직접 부르지 않는다.** 배당 수익률·성장률은 야간 배치가 계산해
+`ticker_analysis`에 넣어둔 값을 읽는다(`tickerAnalysis.ts`). 예전엔 `/stocks`·`/portfolio`·`/plan`
+세 화면이 진입할 때마다 86종목을 야후에 던졌는데, 그 경로를 만들던 `/api/stocks/rates`는 삭제했다.
+대량 요청은 이제 크론 한 곳에서 하루 한 번만 나간다.
 
 | 소스 | 엔드포인트 | 뽑는 것 |
 |---|---|---|
 | 야후 현재가<br>`stockPrice.ts` | `/v8/finance/chart/{sym}?interval=1d&range=1d` | `meta.regularMarketPrice` 하나. 타임아웃 5s |
 | 야후 배당이력<br>`dividendRates.ts` | `/v8/finance/chart/{sym}?range=8y&interval=1d&events=div` | **8년치 일별 주가 + 배당 이벤트.** 타임아웃 8s |
+| 야후 재무<br>`fundamentals.ts` | `query2` `/ws/fundamentals-timeseries/v1/finance/timeseries/{sym}` | 연간 재무 4년치. 타임아웃 10s |
 | Gemini 플랜생성<br>`gemini.ts` | `gemini-2.5-flash:generateContent` + `responseSchema` | 배분안 2개. 타임아웃 **없음** |
 | Gemini 리스크<br>`riskScreen.ts` | 같은 모델 + `tools:[{google_search:{}}]` | 티커당 1콜 병렬. 타임아웃 12s |
 
@@ -110,48 +143,64 @@
 
 - **Gemini는 `responseSchema`와 `google_search`를 동시에 못 쓴다.** 그래서 `riskScreen.ts`가
   JSON 대신 선두 토큰(`CUT|INCREASE|NONE`)을 파싱한다. 구조화 출력과 웹검색은 항상 별개 호출.
-- **라이브 값이 DB 값을 덮어쓴다 (메모리에서만).** DB의 `dividend_yield`/`dividend_growth_5y`는
-  폴백일 뿐이고 야후 값이 우선한다. **DB에 되쓰지는 않는다.**
-- **캐시가 어디에도 없다.** `revalidate`·`cache:`·`unstable_cache`·인메모리 메모 전부 0건.
-  `/stocks`와 `/portfolio`는 진입할 때마다 야후에 **86건을 동시 요청**한다. 레이트리밋도 없다.
+- **`dividend_stocks`의 값은 폴백이다.** `dividend_yield`/`dividend_growth_5y`는 손입력이고,
+  `ticker_analysis`에 배치가 계산한 값이 있으면 그쪽이 우선한다. **카탈로그에 되쓰지는 않는다.**
+- **Next 캐시 계층은 여전히 0건이다** (`revalidate`·`cache:`·`use cache` 전부 안 씀).
+  필요가 없어졌기 때문이다 — 화면이 야후 대신 사전계산 테이블을 읽는다.
+- **동시 요청은 6개로 묶여 있다** (`stockPrice.ts`의 `mapLimit`/`YAHOO_CONCURRENCY`).
+  전량 병렬은 429 위험이 커서 `fetchDividendRates`·`fetchFundamentals`가 이걸 거친다.
 - **전 계층 fail-open.** 실패한 티커는 조용히 빠지고 요청 자체는 성공한다.
-- 재무제표(배당성향·부채·마진)는 `chart`에 **없다** — `quoteSummary`에 있고 지금 코드의
-  헤더만으로는 **401이다.** 아래 절 참고.
+  **예외는 `fetchFundamentals`** — 실패를 사유와 함께 돌려준다(조용히 빼면 위험 노출도가 틀린다).
+- 재무제표(배당성향·부채·마진)는 `chart`에 **없다** — `fundamentals.ts`가 따로 받는다. 아래 절 참고.
 
-### quoteSummary — 아직 안 쓰지만 접근 가능 (2026-08-15 확인)
+### fundamentals-timeseries — 재무 지표는 여기서 받는다 (2026-08-15 확인)
 
-`/v10/finance/quoteSummary/{sym}?modules=summaryDetail,financialData,defaultKeyStatistics`
+```
+query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/{sym}
+  ?symbol={sym}&type=annualFreeCashFlow,...&period1={unix}&period2={unix}
+```
 
-**쿠키와 크럼이 둘 다 있어야 한다.** 하나만으론 401 `Invalid Crumb`이고, `User-Agent`만
-붙이는 현재 방식(`stockPrice.ts`)도 401이다. query1/query2 차이 없음. 야후 로그인은 불필요.
+**쿠키도 크럼도 필요 없다.** `User-Agent`만 붙이면 200이고, `chart` 엔드포인트와 같은 방식이다.
+`period1`/`period2`는 필수. 응답은 `timeseries.result[]`이고 각 원소가
+`{ meta, <type>: [{asOfDate, reportedValue:{raw}} | null, ...] }` — **배열에 null이 섞여 온다.**
 
-1. `https://fc.yahoo.com` 호출 → 404가 오지만 `Set-Cookie`로 `A1`/`A3`가 온다
-2. 그 쿠키로 `/v1/test/getcrumb` → 크럼 문자열
-3. 쿠키 + `&crumb=`을 붙여 호출. **쌍은 재사용 가능** (티커마다 재발급 불필요)
+카탈로그 86종목 전량 실측(동시성 6, 5.2초): **실패 0건, 결측 0인 종목 78개.**
+빈 지표는 `operatingIncome` 6종목, `ebitda` 6종목, `interestExpense` 2종목뿐.
+`BF.B` → `BF-B` 변환도 여기서 통한다.
 
-`BF-B` 같은 클래스주도 200. 필드는 3종목(JNJ·O·MSFT) 전부 값이 채워져 나왔다:
+- **값은 연간(회계연도) 확정치다.** TTM보다 최대 1년 묵을 수 있는 대신 분기/TTM 기준이
+  섞이는 사고가 없다. `asOfDate`를 같이 저장해 화면에 노출한다.
+- **`annualFreeCashFlow`는 믿을 수 있다.** JNJ 19.313B = 영업현금흐름 24.53B − capex 5.217B로
+  정확히 맞는다. 안 오는 종목은 그 뺄셈으로 복구한다.
+- **순부채 필드는 없다.** `annualTotalDebt - annualCashAndCashEquivalents`로 직접 계산.
+- **금액 부호가 항목마다 다르다.** `annualCashDividendsPaid`·`annualCapitalExpenditure`는
+  음수로 온다. 부호 관례를 믿지 말고 절댓값을 쓸 것.
+- **실패해도 200에 에러 봉투(`timeseries.error`)가 실려 온다.** 확인하지 않으면 "값이 빈 종목"처럼
+  조용히 흘러가서 점수가 조용히 틀린다.
 
-| 쓸 것 | 경로 |
-|---|---|
-| 배당성향 | `summaryDetail.payoutRatio` |
-| 마진 | `financialData.{gross,operating,profit,ebitda}Margins` |
-| 부채·현금 | `financialData.{totalDebt,totalCash,debtToEquity}` |
-| 현금흐름 | `financialData.{operatingCashflow,freeCashflow,ebitda}` |
+#### 배당성향 분모는 영업현금흐름(OCF)이다 — 이유
 
-붙이기 전에 알아야 할 것:
+순이익 기준도 FCF 기준도 특정 섹터에서 구조적으로 깨진다. 86종목 실측 중앙값:
 
-- **배당성향은 `summaryDetail`에만 있다.** `defaultKeyStatistics.payoutRatio`는 3종목 모두
-  빈 값이라, 여기서 찾으면 조용히 null이 된다.
-- **REIT 배당성향은 무의미하다.** `O`가 `2.36`(236%)으로 나오는 건 순이익 기준이라서다.
-  REIT는 FFO/AFFO 기준이어야 하고 `quoteSummary`엔 FFO가 없다. 섹터별로 숨기거나 기준을 바꿀 것.
-- **순부채 필드는 없다.** `totalDebt - totalCash`로 직접 계산.
-- **`freeCashflow` 값을 믿지 말 것.** MSFT가 `operatingCashflow` 183B인데 `freeCashflow`는
-  16.5B로 나온다(실제는 70B대). 분기/TTM 기준이 섞인 것으로 보인다. FCF가 필요하면
-  `cashflowStatementHistory`에서 영업현금흐름 − capex로 직접 계산하는 쪽이 안전하다.
-- **응답 봉투가 성공·실패에서 다르다.** 성공은 `quoteSummary.result[0]`, 401은
-  `finance.error`. 둘 다 확인하지 않으면 401이 fail-open으로 빈 값처럼 흘러간다.
-- 크럼은 1회 받아 재사용하면 되지만, **86종목 요청이 기존 `chart` 호출 위에 얹힌다.**
-  캐시도 레이트리밋도 없는 상태라 429 가능성이 크다 — 캐시를 먼저 넣을 것.
+| 섹터 | n | FCF 기준 | OCF 기준 | capex/OCF |
+|---|---|---|---|---|
+| Utilities | 11 | 146% (**10종목은 FCF가 음수라 계산 불가**) | 27% | 122% |
+| Real Estate | 1 | 117% | 62% | 47% |
+| Consumer Staples | 17 | 65% | 50% | 26% |
+| Industrials | 21 | 36% | 28% | 16% |
+| Financials | 11 | 26% | 23% | 8% |
+
+- **순이익 기준**은 REIT에서 깨진다 — `O` 276%, `VTR` 342%. 감가상각 때문이고 FFO/AFFO가
+  있어야 맞는데 야후엔 없다.
+- **FCF 기준**은 유틸리티에서 깨진다 — 규제 유틸리티는 설비투자를 부채로 조달해서 FCF가
+  구조적으로 음수다(`ED` 3239%, 나머지 10종목은 계산 불가). 섹터별 임계값으로도 구제가 안 된다.
+- **OCF 기준**은 전 섹터에서 값이 존재하고 해석된다. capex 부담은 버리지 않고
+  `capex/OCF`를 기업체력 축의 별도 지표로 옮겼다.
+
+> **quoteSummary는 쓰지 않는다.** 쿠키+크럼(왕복 3회, 401 재발급)을 요구하는데,
+> 정작 `cashflowStatementHistory`가 `endDate`와 `netIncome`만 남기고 비어버려서
+> (2026-08-15 확인) 재무 항목을 못 준다. `financialData.freeCashflow`도 값이 틀린다
+> (MSFT 16.5B, 실제 67B). timeseries가 같은 데이터를 인증 없이 더 정확하게 준다.
 
 ---
 
@@ -161,6 +210,12 @@ Supabase Auth 이메일+비밀번호, **클라이언트 전용**. SSR/쿠키 헬
 `src/lib/supabase.ts`가 anon 키로 만든 브라우저 클라이언트 하나이고,
 **API 라우트도 같은 모듈을 import한다** — 즉 서버 측 DB 접근도 anon으로 돌고
 세션이 없다. 지금은 공개 카탈로그만 읽어서 문제가 안 될 뿐이다.
+
+**예외가 하나 있다: `src/lib/supabaseAdmin.ts`.** 서비스롤 키로 RLS를 우회하는
+클라이언트이고 `/api/analysis/refresh`(야간 배치)만 쓴다. `ticker_analysis`에 SELECT 정책만
+있어서 anon으론 쓰기가 원천 차단되기 때문이다. 함수 형태로 만들어 두 가지를 막았다 —
+`typeof window !== "undefined"`면 즉시 throw하고, 키가 없어도 throw한다(모듈 로드 시점이
+아니라 호출 시점이라 빌드는 안 깨진다). `server-only` 패키지는 쓰지 않는다(미설치).
 
 **이중 신원 모델:** `plans`는 `anonymous_id`(localStorage UUID, `anonymousId.ts`)와
 nullable `user_id`를 둘 다 갖는다. insert 때 둘 다 쓰고, 읽을 때 세션 유무로 필터를 고른다.

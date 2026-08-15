@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { AsOfNotice, FlagChips, ScoreBadge } from "@/components/ScoreBadge";
+import { fetchLatestAnalysis, type TickerAnalysis } from "@/lib/tickerAnalysis";
 
 type Stock = {
   ticker: string;
@@ -74,7 +76,15 @@ function tickerColor(s: Stock): { bg: string; text: string } {
   return { bg: SECTOR_COLOR[s.sector] ?? "#52606D", text: "#ffffff" };
 }
 
-function StockCard({ s, featured = false }: { s: Stock; featured?: boolean }) {
+function StockCard({
+  s,
+  analysis,
+  featured = false,
+}: {
+  s: Stock;
+  analysis: TickerAnalysis | undefined;
+  featured?: boolean;
+}) {
   return (
     <div
       className={`relative overflow-hidden flex flex-col justify-between bg-surface-container-lowest rounded-2xl border border-surface-variant transition-shadow duration-300 hover:shadow-lg ${
@@ -110,10 +120,13 @@ function StockCard({ s, featured = false }: { s: Stock; featured?: boolean }) {
             </p>
           </div>
         </div>
-        <span className="shrink-0 inline-flex items-center gap-1 bg-secondary-container text-on-secondary-container px-3 py-1 rounded-full text-label-md font-label-md font-bold">
-          <span className="material-symbols-outlined text-[16px] icon-fill">military_tech</span>
-          {s.consecutive_years >= 50 ? "King" : "Aristocrat"}
-        </span>
+        <div className="shrink-0 flex flex-col items-end gap-1">
+          <span className="inline-flex items-center gap-1 bg-secondary-container text-on-secondary-container px-3 py-1 rounded-full text-label-md font-label-md font-bold">
+            <span className="material-symbols-outlined text-[16px] icon-fill">military_tech</span>
+            {s.consecutive_years >= 50 ? "King" : "Aristocrat"}
+          </span>
+          <ScoreBadge analysis={analysis} />
+        </div>
       </div>
 
       <div className="relative z-10 grid grid-cols-2 gap-stack-md mb-stack-md">
@@ -133,6 +146,25 @@ function StockCard({ s, featured = false }: { s: Stock; featured?: boolean }) {
         {s.business_summary}
       </p>
 
+      {analysis && analysis.status !== "failed" && (
+        <div className="relative z-10 mb-stack-md flex flex-col gap-stack-sm">
+          <FlagChips analysis={analysis} />
+          {/* 점수만 보여주면 판단 근거가 안 보인다. 원지표를 항상 같이 노출한다(로드맵 81~84줄). */}
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-label-md font-label-md text-on-surface-variant">
+            <span>
+              안전 {analysis.safety_score ?? "—"} · 성장 {analysis.growth_score ?? "—"} · 체력{" "}
+              {analysis.strength_score ?? "—"} · 밸류 {analysis.value_score ?? "—"}
+            </span>
+            {analysis.metrics?.payout_ocf != null && (
+              <span>
+                배당성향 {analysis.metrics.payout_ocf}%
+                {analysis.metrics.payout_band && ` (경고선 ${analysis.metrics.payout_band.warn}%)`}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="relative z-10 mt-auto border-t border-surface-variant pt-stack-md flex items-center gap-base text-label-md font-label-md text-on-surface-variant">
         <span className="material-symbols-outlined text-[18px]">calendar_month</span>
         지급월 {s.payout_months.join("·")}월
@@ -143,8 +175,10 @@ function StockCard({ s, featured = false }: { s: Stock; featured?: boolean }) {
 
 export default function StocksPage() {
   const [stocks, setStocks] = useState<Stock[] | null>(null);
-  const [liveYields, setLiveYields] = useState<Record<string, number>>({});
   const [selectedSector, setSelectedSector] = useState<string | null>(null);
+  const [analysis, setAnalysis] = useState<Record<string, TickerAnalysis>>({});
+  const [analysisAsOf, setAnalysisAsOf] = useState<string | null>(null);
+  const [sortByScore, setSortByScore] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -157,26 +191,25 @@ export default function StocksPage() {
     load();
   }, []);
 
-  // 손입력 DB 값 대신 야후 배당 이력 기반 실시간 수익률로 화면을 채운다(계산 못 한 종목은 DB 값 그대로).
   useEffect(() => {
-    if (!stocks || stocks.length === 0) return;
-    const tickers = stocks.map((s) => s.ticker).join(",");
-    fetch(`/api/stocks/rates?tickers=${encodeURIComponent(tickers)}`)
-      .then((r) => r.json())
-      .then((d) => {
-        const rates: Record<string, { dividend_yield: number | null }> = d.rates ?? {};
-        const yields: Record<string, number> = {};
-        for (const [ticker, rate] of Object.entries(rates)) {
-          if (rate.dividend_yield != null) yields[ticker] = rate.dividend_yield;
-        }
-        setLiveYields(yields);
+    fetchLatestAnalysis()
+      .then(({ asOf, byTicker }) => {
+        setAnalysisAsOf(asOf);
+        setAnalysis(byTicker);
       })
       .catch(() => {});
-  }, [stocks]);
+  }, []);
 
+  // 손입력 DB 값 대신 배치가 야후 배당 이력으로 계산해둔 수익률을 쓴다.
+  // 예전엔 진입할 때마다 야후에 86건을 던졌는데, 이제 위 한 번의 조회로 끝난다.
+  // 배치가 계산 못 한 종목은 카탈로그의 DB 값이 그대로 폴백으로 남는다.
   const displayStocks = useMemo(
-    () => stocks?.map((s) => ({ ...s, dividend_yield: liveYields[s.ticker] ?? s.dividend_yield })),
-    [stocks, liveYields]
+    () =>
+      stocks?.map((s) => ({
+        ...s,
+        dividend_yield: analysis[s.ticker]?.dividend_yield ?? s.dividend_yield,
+      })),
+    [stocks, analysis]
   );
 
   const sectorCounts = useMemo(() => {
@@ -186,11 +219,19 @@ export default function StocksPage() {
     return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
   }, [displayStocks]);
 
-  const filteredStocks = displayStocks?.filter(
-    (s) => !selectedSector || s.sector === selectedSector
-  );
-  // dividend_stocks 쿼리가 이미 consecutive_years desc로 정렬돼 있어서 첫 번째가 최고 연속성장 종목이다.
-  const [featured, ...restStocks] = filteredStocks ?? [];
+  const filteredStocks = useMemo(() => {
+    const filtered = displayStocks?.filter((s) => !selectedSector || s.sector === selectedSector);
+    if (!sortByScore || !filtered) return filtered;
+    // 미분석 종목은 점수 정렬에서 맨 뒤로 보낸다. 0점 취급하면 "가장 위험한 종목"으로 올라온다.
+    const score = (t: string) =>
+      analysis[t]?.status === "failed" ? -1 : (analysis[t]?.total_score ?? -1);
+    return [...filtered].sort((a, b) => score(a.ticker) - score(b.ticker));
+  }, [displayStocks, selectedSector, sortByScore, analysis]);
+
+  // 기본 정렬에서는 dividend_stocks 쿼리가 이미 consecutive_years desc라 첫 번째가 최고 연속성장
+  // 종목이다. 점수 정렬로 바꾸면 "가장 낮은 점수"가 맨 앞이라 크게 띄우면 오히려 오해를 부른다.
+  const featured = sortByScore ? undefined : filteredStocks?.[0];
+  const restStocks = sortByScore ? (filteredStocks ?? []) : (filteredStocks ?? []).slice(1);
 
   return (
     <main className="w-full max-w-[1200px] mx-auto px-container-margin py-section-gap pb-[100px] md:pb-section-gap">
@@ -202,6 +243,22 @@ export default function StocksPage() {
           이 서비스가 플랜을 짤 때 사용하는 큐레이션된 배당킹·배당귀족 종목들이에요. 섹터를 눌러서
           필터링해보세요.
         </p>
+      </div>
+
+      <div className="mb-stack-lg flex flex-wrap items-center justify-between gap-stack-md">
+        <AsOfNotice asOf={analysisAsOf} />
+        <button
+          type="button"
+          onClick={() => setSortByScore((v) => !v)}
+          className={`whitespace-nowrap rounded-full px-4 py-2 text-label-md font-label-md transition-colors ${
+            sortByScore
+              ? "bg-primary text-on-primary"
+              : "bg-surface-container-low text-on-surface-variant border border-outline-variant hover:bg-surface-container-high"
+          }`}
+        >
+          <span className="material-symbols-outlined mr-1 align-middle text-[16px]">sort</span>
+          안전성 낮은 순
+        </button>
       </div>
 
       <div className="flex overflow-x-auto gap-base py-2 mb-stack-lg border-b border-surface-variant">
@@ -240,13 +297,13 @@ export default function StocksPage() {
 
       {featured && (
         <div className="mb-stack-lg">
-          <StockCard s={featured} featured />
+          <StockCard s={featured} analysis={analysis[featured.ticker]} featured />
         </div>
       )}
 
       <div className="grid grid-cols-1 @2xl:grid-cols-2 gap-gutter">
         {restStocks.map((s) => (
-          <StockCard key={s.ticker} s={s} />
+          <StockCard key={s.ticker} s={s} analysis={analysis[s.ticker]} />
         ))}
       </div>
     </main>

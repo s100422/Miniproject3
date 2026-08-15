@@ -1,0 +1,95 @@
+"use client";
+
+import { grade } from "@/lib/dividendScore";
+import { daysSince, FLAG_LABEL, STALE_DAYS, type TickerAnalysis } from "@/lib/tickerAnalysis";
+
+/** 등급별 색. 4단계라 secondary(안전)와 error(경계) 사이에 warning 한 칸이 들어간다. */
+const GRADE_STYLE: Record<string, string> = {
+  안전: "bg-secondary-container text-on-secondary-container",
+  양호: "bg-surface-container-high text-on-surface",
+  주의: "bg-warning-container text-on-warning-container",
+  경계: "bg-error-container text-on-error-container",
+  미분석: "bg-surface-container text-on-surface-variant",
+};
+
+/**
+ * 안전성 배지. **점수를 못 낸 종목은 조용히 빼지 않고 "미분석"으로 명시한다** —
+ * 빼버리면 화면에서 사라져서 위험 노출도가 실제보다 낮아 보인다(로드맵 86줄).
+ */
+export function ScoreBadge({
+  analysis,
+  showScore = true,
+}: {
+  analysis: TickerAnalysis | undefined;
+  showScore?: boolean;
+}) {
+  const total = analysis?.status === "failed" ? null : (analysis?.total_score ?? null);
+  const g = grade(total);
+  const flags = analysis?.metrics?.flags ?? [];
+  const isTrap = flags.includes("dividend_trap");
+
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span
+        className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-label-md font-label-md font-bold ${GRADE_STYLE[g]}`}
+      >
+        {isTrap && <span className="material-symbols-outlined text-[14px]">warning</span>}
+        {g}
+        {showScore && total != null && <span className="font-normal">{total}</span>}
+      </span>
+    </span>
+  );
+}
+
+/** 배지 옆에 붙는 플래그 칩들. 근거를 항상 같이 노출한다는 원칙(로드맵 81~84줄). */
+export function FlagChips({ analysis }: { analysis: TickerAnalysis | undefined }) {
+  const flags = analysis?.metrics?.flags ?? [];
+  if (flags.length === 0) return null;
+  return (
+    <span className="inline-flex flex-wrap gap-1">
+      {flags.map((f) => (
+        <span
+          key={f}
+          className={`rounded-full px-2 py-0.5 text-label-md font-label-md ${
+            f === "dividend_trap"
+              ? "bg-error-container text-on-error-container"
+              : "bg-surface-container text-on-surface-variant"
+          }`}
+        >
+          {FLAG_LABEL[f] ?? f}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+/**
+ * 기준일 표시. 배치가 며칠째 실패하면 화면 값이 조용히 낡는데, 사용자는 그걸 알 방법이 없다.
+ * 그래서 항상 기준일을 노출하고 STALE_DAYS를 넘기면 경고로 바꾼다(로드맵 85줄).
+ */
+export function AsOfNotice({ asOf }: { asOf: string | null }) {
+  const days = daysSince(asOf);
+
+  if (!asOf || days == null) {
+    return (
+      <p className="rounded-xl bg-error-container px-4 py-3 text-body-md font-body-md text-on-error-container">
+        분석 데이터가 아직 없어요. 야간 배치가 한 번도 성공하지 못한 상태예요.
+      </p>
+    );
+  }
+
+  const stale = days > STALE_DAYS;
+  return (
+    <p
+      className={`text-label-md font-label-md ${
+        stale
+          ? "rounded-xl bg-error-container px-4 py-3 text-on-error-container"
+          : "text-on-surface-variant"
+      }`}
+    >
+      {stale && <span className="material-symbols-outlined mr-1 align-middle text-[16px]">warning</span>}
+      분석 기준일 <strong>{asOf}</strong> (미국 종가 기준)
+      {stale && ` — ${days}일째 갱신되지 않았어요. 아래 점수는 그때 값이에요.`}
+    </p>
+  );
+}

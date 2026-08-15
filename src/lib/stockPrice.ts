@@ -1,6 +1,30 @@
 // Yahoo는 클래스주를 점이 아닌 하이픈으로 쓴다(BF.B -> BF-B)
 export const toQuoteSymbol = (ticker: string) => ticker.replace(".", "-");
 
+/** 야후 동시 요청 상한. 카탈로그 86종목을 전량 병렬로 던지면 429 위험이 크다. */
+export const YAHOO_CONCURRENCY = 6;
+
+/**
+ * 동시 실행을 limit개로 묶어 순회한다. 야후엔 레이트리밋이 있어서 카탈로그 86종목을
+ * Promise.all로 전량 병렬 요청하면 429를 맞을 수 있다. 결과 순서는 입력 순서와 같다.
+ */
+export async function mapLimit<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>
+): Promise<R[]> {
+  const out = new Array<R>(items.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) {
+      const i = next++;
+      out[i] = await fn(items[i]);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return out;
+}
+
 const QUOTE_URL = (ticker: string) =>
   `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
     toQuoteSymbol(ticker)
